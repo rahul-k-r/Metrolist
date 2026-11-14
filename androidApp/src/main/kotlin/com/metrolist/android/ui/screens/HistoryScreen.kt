@@ -46,7 +46,7 @@ fun HistoryScreen(
         Settings.shared.dataSyncId,
         Settings.shared.innerTubeAuthUser,
         Settings.shared.ytmSync,
-        Settings.shared.pauseListenHistory,
+        Settings.shared.listenHistoryPaused,
     ) { viewModel.loadHistory() }
     val uiState by viewModel.uiState.collectAsState()
     val playerConnection = LocalPlayerConnection.current ?: return

@@ -311,6 +311,7 @@ import com.metrolist.shared.ui.components.AlertDialog
 import com.metrolist.shared.ui.components.BottomSheet
 import com.metrolist.shared.ui.components.DISMISSED_ANCHOR
 import com.metrolist.shared.ui.components.EXPANDED_ANCHOR
+import com.metrolist.shared.ui.components.IncognitoBadge
 import com.metrolist.shared.ui.components.LocalDownloadedSongIds
 import com.metrolist.shared.ui.components.PopupContent
 import com.metrolist.shared.ui.components.PopupVisibility
@@ -939,6 +940,7 @@ fun MetrolistApp(
                             hasPendingUpdate = hasPendingUpdate,
                         )
                     }
+                    IncognitoBadge(Modifier.align(Alignment.BottomEnd))
                     if (showAccountMenu) {
                         AccountMenu(
                             onClose = { showAccountMenu = false },

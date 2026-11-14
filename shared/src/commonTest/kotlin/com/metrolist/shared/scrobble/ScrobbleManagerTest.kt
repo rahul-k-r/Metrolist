@@ -320,6 +320,89 @@ class ScrobbleManagerTest {
             assertEquals(1, scrobbles)
         }
 
+    private suspend fun TestScope.incognitoManager(
+        nowPlaying: MutableList<String>,
+        submitted: MutableList<Long>,
+    ): ScrobbleManager {
+        val account = ScrobbleAccount(ScrobbleProvider.LAST_FM, "account", "token")
+        ScrobbleSessions.connectLastFm(account.account, account.credential)
+        return ScrobbleManager(
+            backgroundScope,
+            { testScheduler.currentTime },
+            startRetryLoop = true,
+            accountsOverride = { listOf(account) },
+            submitOverride = { _, _, _, timestamp, _, _, _ ->
+                submitted += timestamp
+                Result.success(Unit)
+            },
+            nowPlayingOverride = { _, song ->
+                nowPlaying += song.id
+                Result.success(Unit)
+            },
+            persistenceDispatcher = StandardTestDispatcher(testScheduler),
+        ).apply { scrobbleDelaySeconds = 10 }
+    }
+
+    @Test
+    fun incognitoSongIsNeitherAnnouncedNorScrobbled() =
+        runTest {
+            Settings.shared.incognitoModeEnabled = true
+            Settings.shared.incognitoActive = true
+            val nowPlaying = mutableListOf<String>()
+            val submitted = mutableListOf<Long>()
+            val manager = incognitoManager(nowPlaying, submitted)
+            runCurrent()
+            manager.onSongStart(song().copy(duration = 180))
+            advanceTimeBy(60_000)
+            runCurrent()
+            assertTrue(nowPlaying.isEmpty())
+            assertTrue(submitted.isEmpty())
+        }
+
+    @Test
+    fun songHeardPartlyInIncognitoStaysUnscrobbledAfterItEnds() =
+        runTest {
+            Settings.shared.incognitoModeEnabled = true
+            val nowPlaying = mutableListOf<String>()
+            val submitted = mutableListOf<Long>()
+            val manager = incognitoManager(nowPlaying, submitted)
+            runCurrent()
+            manager.onSongStart(song().copy(duration = 180))
+            advanceTimeBy(2_000)
+            Settings.shared.incognitoActive = true
+            Snapshot.sendApplyNotifications()
+            runCurrent()
+            advanceTimeBy(3_000)
+            Settings.shared.incognitoActive = false
+            Snapshot.sendApplyNotifications()
+            runCurrent()
+            advanceTimeBy(30_000)
+            runCurrent()
+            assertTrue(submitted.isEmpty())
+        }
+
+    @Test
+    fun nextSongScrobblesNormallyOnceIncognitoIsOff() =
+        runTest {
+            Settings.shared.incognitoModeEnabled = true
+            val nowPlaying = mutableListOf<String>()
+            val submitted = mutableListOf<Long>()
+            val manager = incognitoManager(nowPlaying, submitted)
+            runCurrent()
+            Settings.shared.incognitoActive = true
+            Snapshot.sendApplyNotifications()
+            manager.onSongStart(song().copy(duration = 180))
+            runCurrent()
+            Settings.shared.incognitoActive = false
+            Snapshot.sendApplyNotifications()
+            runCurrent()
+            manager.onPlaybackInstanceStart(song().copy(id = "next", duration = 180))
+            advanceTimeBy(11_000)
+            runCurrent()
+            assertEquals(1, submitted.size)
+            assertEquals(listOf("next"), nowPlaying.takeLast(1))
+        }
+
     @BeforeTest
     fun setUp() {
         PendingScrobbleStore.daoForTest = MemoryPendingScrobbleDao()

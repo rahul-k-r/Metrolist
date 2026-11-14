@@ -551,7 +551,7 @@ internal class IosPlaybackController(
             }
         }
         scope.launch {
-            snapshotFlow { Settings.shared.pauseListenHistory }.collect(::updateListeningHistoryPrivacy)
+            snapshotFlow { Settings.shared.listenHistoryPaused }.collect(::updateListeningHistoryPrivacy)
         }
         scope.launch {
             combine(player.playbackInstance, player.isPlaying, player.isCrossfadeReportingActive) { instance, playing, overlapping ->
@@ -560,8 +560,8 @@ internal class IosPlaybackController(
                 if (!overlapping && crossfadeOutgoingListeningSession == null) {
                     updateListeningPlayback(instance, playing)
                 } else {
-                    listeningSession?.clock?.update(playing, Settings.shared.pauseListenHistory)
-                    crossfadeOutgoingListeningSession?.clock?.update(playing, Settings.shared.pauseListenHistory)
+                    listeningSession?.clock?.update(playing, Settings.shared.listenHistoryPaused)
+                    crossfadeOutgoingListeningSession?.clock?.update(playing, Settings.shared.listenHistoryPaused)
                 }
             }
         }
@@ -1398,7 +1398,7 @@ internal class IosPlaybackController(
     ): ListeningSession {
         val origin = timeSource.markNow()
         val clock = ListeningHistoryClock { origin.elapsedNow().inWholeMilliseconds }
-        clock.update(playing, Settings.shared.pauseListenHistory)
+        clock.update(playing, Settings.shared.listenHistoryPaused)
         return ListeningSession(instanceId, song, clock)
     }
 
@@ -1418,7 +1418,7 @@ internal class IosPlaybackController(
         } else if (instance != null) {
             current?.song = instance.second
         }
-        listeningSession?.clock?.update(playing, Settings.shared.pauseListenHistory)
+        listeningSession?.clock?.update(playing, Settings.shared.listenHistoryPaused)
         record?.let(::recordListeningPlay)
     }
 
@@ -1491,7 +1491,7 @@ internal class IosPlaybackController(
     }
 
     private fun accumulatePlayTime(session: ListeningSession) {
-        session.clock.update(playing = false, historyPaused = Settings.shared.pauseListenHistory)
+        session.clock.update(playing = false, historyPaused = Settings.shared.listenHistoryPaused)
     }
 
     private fun takeListeningRecord(session: ListeningSession?): Pair<SongItem, Long>? {
@@ -1506,7 +1506,7 @@ internal class IosPlaybackController(
 
     private suspend fun recordQualifiedPlay(record: Pair<SongItem, Long>?) {
         val (song, playTimeMs) = record ?: return
-        if (!isQualifiedLocalPlay(playTimeMs, Settings.shared.historyDuration, Settings.shared.pauseListenHistory)) return
+        if (!isQualifiedLocalPlay(playTimeMs, Settings.shared.historyDuration, Settings.shared.listenHistoryPaused)) return
         try {
             database.withDatabaseTransaction {
                 val dao = database.dao()

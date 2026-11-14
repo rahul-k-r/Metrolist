@@ -56,7 +56,7 @@ fun HistoryScreen() {
         Settings.shared.dataSyncId,
         Settings.shared.innerTubeAuthUser,
         Settings.shared.ytmSync,
-        Settings.shared.pauseListenHistory,
+        Settings.shared.listenHistoryPaused,
     ) { state.loadHistory(scope) }
 
     LaunchedEffect(state.entries) { state.preparePresentation() }

@@ -1828,7 +1828,7 @@ object PlayerState {
             }
         }
         scope.launch {
-            snapshotFlow { Settings.shared.pauseListenHistory }.collect(history::onHistoryPausedChanged)
+            snapshotFlow { Settings.shared.listenHistoryPaused }.collect(history::onHistoryPausedChanged)
         }
         scope.launch {
             player.isPlaying.collectLatest {
@@ -4057,7 +4057,7 @@ object PlayerState {
             isPlaying = nextSong != null && player.isPlaying.value,
             reportingEnabled = externalReportingEnabled,
             minDurationMs = (Settings.shared.historyDuration * 1000).toLong(),
-            pauseHistory = Settings.shared.pauseListenHistory,
+            pauseHistory = Settings.shared.listenHistoryPaused,
             close = close,
         )
     }

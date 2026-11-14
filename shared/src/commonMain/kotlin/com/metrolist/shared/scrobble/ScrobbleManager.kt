@@ -65,6 +65,9 @@ class ScrobbleManager internal constructor(
     private var currentSong: SongItem? = null
     private var isScrobbled = false
 
+    // Set once incognito is seen during a song, so switching it off never scrobbles that song afterwards.
+    private var incognitoTainted = false
+
     private var hasInheritedScrobblePending = false
     private var isScrobbleInFlight = false
     private var songGeneration = 0L
@@ -98,6 +101,9 @@ class ScrobbleManager internal constructor(
                 }
             }
             val settings = Settings.shared
+            scope.launch {
+                snapshotFlow { settings.isIncognito }.collect { if (it) incognitoTainted = true }
+            }
             scope.launch {
                 snapshotFlow {
                     with(settings) {
@@ -250,6 +256,7 @@ class ScrobbleManager internal constructor(
         totalPlayedMs = 0L
         lastUpdateMs = monotonicClock()
         isScrobbled = false
+        incognitoTainted = Settings.shared.isIncognito
         hasInheritedScrobblePending = false
         isScrobbleInFlight = false
         songStartedAtTimestamp = clock() / 1000
@@ -304,6 +311,7 @@ class ScrobbleManager internal constructor(
 
     private fun updatePlayedTime() {
         val previous = lastUpdateMs ?: return
+        if (Settings.shared.isIncognito) incognitoTainted = true
         val now = monotonicClock()
         totalPlayedMs += (now - previous).coerceAtLeast(0L)
         lastUpdateMs = now
@@ -311,7 +319,7 @@ class ScrobbleManager internal constructor(
 
     private fun checkScrobble() {
         val song = currentSong ?: return
-        if (!reportingEnabled || isScrobbled) return
+        if (!reportingEnabled || isScrobbled || incognitoTainted) return
         val thresholdMs = scrobbleThresholdMs(song) ?: return
         if (totalPlayedMs >= thresholdMs) scrobbleSong(song)
     }
@@ -327,7 +335,7 @@ class ScrobbleManager internal constructor(
 
     private fun scrobbleSong(song: SongItem) {
         val accounts = currentAccounts()
-        if (!reportingEnabled || accounts.isEmpty() || isScrobbled || hasInheritedScrobblePending || isScrobbleInFlight) return
+        if (!reportingEnabled || accounts.isEmpty() || isScrobbled || incognitoTainted || hasInheritedScrobblePending || isScrobbleInFlight) return
         isScrobbleInFlight = true
         val generation = songGeneration
         val timestamp = songStartedAtTimestamp
@@ -582,16 +590,21 @@ class ScrobbleManager internal constructor(
             }
         }
 
+    // Incognito yields no accounts, so now-playing, the ticker and submission all stand down.
     private fun currentAccounts(nowPlaying: Boolean = false): List<ScrobbleAccount> =
-        accountsOverride?.invoke(nowPlaying) ?: buildList {
-            if (Settings.shared.lastFmEnabled &&
-                Settings.shared.lastFmActivityEnabled &&
-                (!nowPlaying || Settings.shared.lastFmUseNowPlaying)
-            ) {
-                ScrobbleSessions.current(ScrobbleProvider.LAST_FM)?.let(::add)
-            }
-            if (Settings.shared.listenBrainzEnabled && (!nowPlaying || Settings.shared.listenBrainzUseNowPlaying)) {
-                ScrobbleSessions.current(ScrobbleProvider.LISTEN_BRAINZ)?.let(::add)
+        if (Settings.shared.isIncognito) {
+            emptyList()
+        } else {
+            accountsOverride?.invoke(nowPlaying) ?: buildList {
+                if (Settings.shared.lastFmEnabled &&
+                    Settings.shared.lastFmActivityEnabled &&
+                    (!nowPlaying || Settings.shared.lastFmUseNowPlaying)
+                ) {
+                    ScrobbleSessions.current(ScrobbleProvider.LAST_FM)?.let(::add)
+                }
+                if (Settings.shared.listenBrainzEnabled && (!nowPlaying || Settings.shared.listenBrainzUseNowPlaying)) {
+                    ScrobbleSessions.current(ScrobbleProvider.LISTEN_BRAINZ)?.let(::add)
+                }
             }
         }
 

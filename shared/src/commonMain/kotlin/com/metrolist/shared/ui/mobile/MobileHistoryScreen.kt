@@ -87,7 +87,7 @@ internal fun MobileHistoryScreen(
         Settings.shared.dataSyncId,
         Settings.shared.innerTubeAuthUser,
         Settings.shared.ytmSync,
-        Settings.shared.pauseListenHistory,
+        Settings.shared.listenHistoryPaused,
     ) {
         database.historyChanges().collectLatest { loader.refresh(query, sortMode, sortDirection) }
     }
@@ -98,7 +98,7 @@ internal fun MobileHistoryScreen(
         Settings.shared.dataSyncId,
         Settings.shared.innerTubeAuthUser,
         Settings.shared.ytmSync,
-        Settings.shared.pauseListenHistory,
+        Settings.shared.listenHistoryPaused,
     ) {
         try {
             database.syncYouTubeHistory()

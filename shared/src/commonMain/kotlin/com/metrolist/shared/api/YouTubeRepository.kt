@@ -85,6 +85,7 @@ import com.metrolist.shared.model.toSongItem
 import com.metrolist.shared.playlist.LibraryDeletionTracker
 import com.metrolist.shared.playlist.PlaylistChanges
 import com.metrolist.shared.settings.BlockedContent
+import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.state.SongLikeState
 import com.metrolist.shared.utils.Logger
 import com.metrolist.shared.viewmodels.LIBRARY_REFRESH_TTL_MILLIS
@@ -2345,10 +2346,42 @@ class YouTubeRepository(
         val playlistId: String?,
         val params: String?,
         val continuation: String?,
+        val anonymous: Boolean = false,
     )
 
     private val nextRequestsLock = SynchronizedObject()
     private val nextRequests = mutableMapOf<NextRequestKey, CompletableDeferred<JsonObject>>()
+
+    private val anonymousNextLock = SynchronizedObject()
+    private var anonymousNextTube: InnerTube? = null
+
+    /**
+     * While incognito, /next (radio, autoplay, counterpart lookups) goes out without the account and
+     * with its own fresh visitor id, so it cannot shape the account's recommendations. The session is
+     * kept for the incognito run and dropped as soon as a request finds incognito off, so each run
+     * starts from a new visitor.
+     */
+    private suspend fun nextTube(): InnerTube {
+        if (!Settings.shared.isIncognito) {
+            val stale = synchronized(anonymousNextLock) { anonymousNextTube.also { anonymousNextTube = null } }
+            stale?.close()
+            return innerTube
+        }
+        synchronized(anonymousNextLock) { anonymousNextTube }?.let { return it }
+        val tube = innerTube.createIsolatedSession(includeAccount = false)
+        tube.replaceSession(cookie = null, visitorData = null, dataSyncId = null, authUser = "0", useLoginForBrowse = false)
+        tube.fetchFreshVisitorData()?.let { tube.visitorData = it }
+        val existing =
+            synchronized(anonymousNextLock) {
+                anonymousNextTube ?: run {
+                    anonymousNextTube = tube
+                    null
+                }
+            }
+        if (existing == null) return tube
+        tube.close()
+        return existing
+    }
 
     private suspend fun nextResponse(
         videoId: String? = null,
@@ -2358,7 +2391,9 @@ class YouTubeRepository(
     ): JsonObject {
         val session = innerTube.sessionSnapshot()
         val voteRevision = SongLikeState.voteObservationRevision()
-        val key = NextRequestKey(session, videoId, playlistId, params, continuation)
+        val tube = nextTube()
+        val anonymous = tube !== innerTube
+        val key = NextRequestKey(session, videoId, playlistId, params, continuation, anonymous)
         while (true) {
             val request = CompletableDeferred<JsonObject>()
             val pending = synchronized(nextRequestsLock) { nextRequests.getOrPut(key) { request } }
@@ -2375,7 +2410,7 @@ class YouTubeRepository(
             try {
                 requireCurrentSession(session)
                 val response =
-                    innerTube.next(
+                    tube.next(
                         YouTubeClient.WEB_REMIX,
                         videoId,
                         playlistId,
@@ -2386,7 +2421,7 @@ class YouTubeRepository(
                 check(response.status.isSuccess()) { "Next request failed with HTTP ${response.status.value}" }
                 val body = response.bodyLimited<JsonObject>(PLAYER_NEXT_RESPONSE_LIMIT)
                 requireCurrentSession(session)
-                if (session.useLoginForBrowse && innerTube.hasSapCookieAuth(session)) {
+                if (!anonymous && session.useLoginForBrowse && innerTube.hasSapCookieAuth(session)) {
                     reconcileSongVotes(body, voteRevision)
                 }
                 return body.also(request::complete)

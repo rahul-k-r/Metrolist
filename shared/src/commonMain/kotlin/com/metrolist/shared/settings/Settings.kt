@@ -214,6 +214,7 @@ class Settings(
 
     init {
         if ((settings as? DeferredSecretMigrationSettings)?.secretRecoveryPending != true) migrateInitialSettings()
+        IncognitoPolicy.resetOnStart(settings)
     }
 
     private fun migrateInitialSettings() {
@@ -529,6 +530,14 @@ class Settings(
 
     var pauseListenHistory by preference(false)
     var pauseSearchHistory by preference(false)
+    var incognitoModeEnabled by preference(IncognitoPolicy.ENABLED_KEY, false)
+    var incognitoShowInProfileMenu by preference(IncognitoPolicy.SHOW_IN_MENU_KEY, true)
+    var incognitoResetOnRestart by preference(IncognitoPolicy.RESET_ON_RESTART_KEY, true)
+    var incognitoActive by preference(IncognitoPolicy.ACTIVE_KEY, false)
+
+    val isIncognito: Boolean get() = IncognitoPolicy.isIncognito(incognitoModeEnabled, incognitoActive)
+    val listenHistoryPaused: Boolean get() = pauseListenHistory || isIncognito
+    val searchHistoryPaused: Boolean get() = pauseSearchHistory || isIncognito
     var hideRecentSearches by preference(HideRecentSearchesKey, false)
     var searchHistory by preference("")
     var recentPlayedSearchSongsJson by preference(RecentPlayedSearchSongsJsonKey, "")
@@ -1280,6 +1289,7 @@ class Settings(
                 setOf(
                     "aiSlopBlocklistCache",
                     "aiSlopBlocklistUpdatedAt",
+                    IncognitoPolicy.ACTIVE_KEY,
                     SpeedDialArtworkRefreshTimesKey,
                     "customDownloadPath",
                     "knownUploadIdsJson",

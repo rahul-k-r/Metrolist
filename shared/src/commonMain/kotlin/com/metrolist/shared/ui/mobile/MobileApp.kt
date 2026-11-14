@@ -199,6 +199,7 @@ import com.metrolist.shared.ui.components.COLLAPSED_ANCHOR
 import com.metrolist.shared.ui.components.ChipShelf
 import com.metrolist.shared.ui.components.EXPANDED_ANCHOR
 import com.metrolist.shared.ui.components.HomeLoadingPlaceholder
+import com.metrolist.shared.ui.components.IncognitoBadge
 import com.metrolist.shared.ui.components.MiniPlayer
 import com.metrolist.shared.ui.components.PopupContent
 import com.metrolist.shared.ui.components.PopupVisibility
@@ -892,6 +893,7 @@ fun MobileApp(
                                                 )
                                             }
                                         }
+                                        IncognitoBadge(Modifier.align(Alignment.BottomEnd))
                                         if (showAccountMenu) {
                                             AccountPopupDialog(
                                                 isSignedIn = authManager.isLoggedIn,

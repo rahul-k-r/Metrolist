@@ -5458,4 +5458,25 @@
     <string name="ai_setup_privacy_settings">Open privacy settings</string>
     <string name="ai_setup_sign_in_again">Sign in again</string>
     <string name="ai_setup_key_limits">Review key limits</string>
+
+    <!-- Translators: Title of the privacy setting that enables the incognito quick switch. -->
+    <string name="incognito_mode">Incognito mode</string>
+    <!-- Translators: Supporting text beneath the incognito mode setting. -->
+    <string name="incognito_mode_desc">Lets you switch incognito on and off. While it is on, plays and searches are not recorded and radio requests are sent without your account, so your recommendations stay unchanged. Likes, library and playlist changes still use your account.</string>
+    <!-- Translators: Title of the setting that places the incognito switch in the profile menu. -->
+    <string name="incognito_show_in_menu">Show in profile menu</string>
+    <!-- Translators: Supporting text beneath the show incognito in profile menu setting. -->
+    <string name="incognito_show_in_menu_desc">Add an incognito switch to the profile menu for quick access.</string>
+    <!-- Translators: Title of the setting that turns incognito off when the app starts again. -->
+    <string name="incognito_reset_on_restart">Turn off when the app restarts</string>
+    <!-- Translators: Supporting text beneath the turn off incognito on restart setting. -->
+    <string name="incognito_reset_on_restart_desc">Incognito switches itself off the next time the app starts.</string>
+    <!-- Translators: Label of the incognito switch in the profile menu. -->
+    <string name="incognito_menu_title">Incognito</string>
+    <!-- Translators: Supporting text under the incognito switch in the profile menu while incognito is on. -->
+    <string name="incognito_menu_on">On: plays and searches are not recorded</string>
+    <!-- Translators: Supporting text under the incognito switch in the profile menu while incognito is off. -->
+    <string name="incognito_menu_off">Off</string>
+    <!-- Translators: Accessibility label for the small badge on the profile button while incognito mode is active. -->
+    <string name="incognito_badge_description">Incognito mode is on</string>
 </resources>

@@ -187,6 +187,7 @@ import com.metrolist.shared.model.previewThumbnailUrl
 import com.metrolist.shared.playlistimport.PlaylistImportProgressIndicator
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.settings.displayName
+import com.metrolist.shared.ui.components.IncognitoBadge
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.navigation.navigationPopupSource
 import com.metrolist.shared.ui.theme.uiEnhanced
@@ -805,6 +806,7 @@ private fun AccountMenuButton(
                 )
             }
         }
+        IncognitoBadge(Modifier.align(Alignment.BottomEnd))
         if (showAccountMenu) {
             AccountMenu(
                 onDismiss = onDismissAccountMenu,

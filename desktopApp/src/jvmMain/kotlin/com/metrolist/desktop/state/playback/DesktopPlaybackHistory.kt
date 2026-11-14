@@ -32,7 +32,7 @@ internal class DesktopPlaybackHistory(
     fun onPlayingChanged(isPlaying: Boolean) {
         if (closed) return
         playing = isPlaying
-        clock.update(playing, Settings.shared.pauseListenHistory)
+        clock.update(playing, Settings.shared.listenHistoryPaused)
     }
 
     fun onHistoryPausedChanged(paused: Boolean) {

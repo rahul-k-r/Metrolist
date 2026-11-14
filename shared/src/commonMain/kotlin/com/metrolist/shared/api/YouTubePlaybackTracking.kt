@@ -100,7 +100,7 @@ internal class YouTubePlaybackTracking(
         }
 
     internal fun isPlaybackReportingEnabled(): Boolean =
-        innerTube.hasSapCookieAuth() && Settings.shared.ytmSync && !Settings.shared.pauseListenHistory
+        innerTube.hasSapCookieAuth() && Settings.shared.ytmSync && !Settings.shared.listenHistoryPaused
 
     internal suspend fun registerPlayback(
         playbackTrackingUrl: String,

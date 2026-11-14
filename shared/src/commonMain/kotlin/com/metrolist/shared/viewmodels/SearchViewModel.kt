@@ -127,7 +127,7 @@ class SearchViewModel(
         if (newQuery.isNotBlank()) {
             suggestionsJob?.cancel()
             _uiState.update { it.copy(query = newQuery, isQuerySubmitted = true, searchSuggestions = null) }
-            search(recordSearchHistory = !Settings.shared.pauseSearchHistory)
+            search(recordSearchHistory = !Settings.shared.searchHistoryPaused)
         } else if (newQuery.isEmpty()) {
             clearResults()
         }
@@ -186,7 +186,7 @@ class SearchViewModel(
     fun searchFiltered(filter: SearchFilter) {
         val currentQuery = _uiState.value.query
         if (currentQuery.isEmpty()) return
-        val recordSearchHistory = !Settings.shared.pauseSearchHistory
+        val recordSearchHistory = !Settings.shared.searchHistoryPaused
         if (recordSearchHistory) addSearchHistory(currentQuery)
         val pendingHistoryMutation = historyMutationJob.takeIf { recordSearchHistory }
 
@@ -245,7 +245,7 @@ class SearchViewModel(
         val continuation = state.filteredResults?.continuation ?: return
         val submitted = state.isQuerySubmitted
         if (!canLoadMoreFilteredResults(state, loadingContinuation)) return
-        val recordSearchHistory = !Settings.shared.pauseSearchHistory
+        val recordSearchHistory = !Settings.shared.searchHistoryPaused
         val pendingHistoryMutation = historyMutationJob.takeIf { recordSearchHistory }
 
         loadingContinuation = continuation
@@ -313,12 +313,12 @@ class SearchViewModel(
         cancelLoadMore()
         _uiState.update { it.copy(selectedFilter = null, unfilteredResults = null, filteredResults = null) }
         if (_uiState.value.query.isNotEmpty()) {
-            search(recordSearchHistory = !Settings.shared.pauseSearchHistory)
+            search(recordSearchHistory = !Settings.shared.searchHistoryPaused)
         }
     }
 
     fun addSearchHistory(query: String) {
-        if (!shouldAddSearchHistory(query, Settings.shared.pauseSearchHistory)) return
+        if (!shouldAddSearchHistory(query, Settings.shared.searchHistoryPaused)) return
         historySyncJob?.cancel()
         removedRemoteSearchQueries.remove(query.lowercase())
         searchHistoryRevisions[query] = ++nextSearchHistoryRevision
@@ -337,7 +337,7 @@ class SearchViewModel(
     fun searchFromHistory(query: String) {
         suggestionsJob?.cancel()
         _uiState.update { it.copy(query = query, isQuerySubmitted = true, searchSuggestions = null) }
-        search(recordSearchHistory = !Settings.shared.pauseSearchHistory)
+        search(recordSearchHistory = !Settings.shared.searchHistoryPaused)
     }
 
     fun refreshSearchHistory() {

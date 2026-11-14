@@ -31,6 +31,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ripple
@@ -76,12 +77,17 @@ import com.metrolist.shared.generated.resources.account_sign_in
 import com.metrolist.shared.generated.resources.account_user_icon
 import com.metrolist.shared.generated.resources.action_logout
 import com.metrolist.shared.generated.resources.cancel
+import com.metrolist.shared.generated.resources.incognito_menu_off
+import com.metrolist.shared.generated.resources.incognito_menu_on
+import com.metrolist.shared.generated.resources.incognito_menu_title
 import com.metrolist.shared.generated.resources.integrations
 import com.metrolist.shared.generated.resources.listen_together
 import com.metrolist.shared.generated.resources.menu_history
 import com.metrolist.shared.generated.resources.settings
 import com.metrolist.shared.generated.resources.statistics
 import com.metrolist.shared.generated.resources.switch_youtube_channel
+import com.metrolist.shared.settings.IncognitoPolicy
+import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.ui.components.AlertDialog
 import com.metrolist.shared.ui.components.images.AsyncImage
 import com.metrolist.shared.ui.icons.MetrolistIcons
@@ -289,6 +295,26 @@ internal fun AccountMenuContent(
                     ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        val appSettings = Settings.shared
+        if (IncognitoPolicy.showQuickToggle(appSettings.incognitoModeEnabled, appSettings.incognitoShowInProfileMenu)) {
+            AccountMenuGroup(Modifier.expressiveEntrance(1)) {
+                SettingsNavigationRow(
+                    title = stringResource(Res.string.incognito_menu_title),
+                    subtitle = stringResource(if (appSettings.incognitoActive) Res.string.incognito_menu_on else Res.string.incognito_menu_off),
+                    icon = MetrolistIcons.Filled.VisibilityOff,
+                    iconSize = 28.dp,
+                    iconTint = colorScheme.primary,
+                    trailingContent = {
+                        Switch(checked = appSettings.incognitoActive, onCheckedChange = { appSettings.incognitoActive = it })
+                    },
+                    first = true,
+                    last = true,
+                    onClick = { appSettings.incognitoActive = !appSettings.incognitoActive },
+                    focusModifier = focusModifier,
                 )
             }
         }

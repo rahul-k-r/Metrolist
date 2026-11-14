@@ -29,7 +29,7 @@ internal fun List<SettingsGroupRegistration>.prioritized(page: SettingsPageId): 
             }
 
             SettingsPageId.PRIVACY -> {
-                listOf("history", "blocklists", "diagnostics")
+                listOf("incognito", "history", "blocklists", "diagnostics")
             }
 
             SettingsPageId.PLAYER_STYLE -> {

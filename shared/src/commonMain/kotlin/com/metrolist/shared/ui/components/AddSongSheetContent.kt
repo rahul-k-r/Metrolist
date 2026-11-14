@@ -91,7 +91,7 @@ fun AddSongSheetContent(
                             .searchFiltered(
                                 submittedQuery,
                                 SearchFilter.SONG,
-                                recordSearchHistory = !Settings.shared.pauseSearchHistory,
+                                recordSearchHistory = !Settings.shared.searchHistoryPaused,
                             ).items
                             .filterIsInstance<SongItem>()
                 } catch (e: CancellationException) {

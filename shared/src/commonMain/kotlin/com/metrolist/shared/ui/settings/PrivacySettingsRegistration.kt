@@ -58,6 +58,28 @@ internal fun SettingsUiRegistryBuilder.registerPrivacySettings(host: SharedSetti
         icon = MetrolistIcons.Outlined.Security,
         tone = SettingsTone.CYAN,
     ) {
+        group("incognito", stringResource(Res.string.incognito_mode)) {
+            switch(
+                id = "incognitoModeEnabled",
+                title = stringResource(Res.string.incognito_mode),
+                description = stringResource(Res.string.incognito_mode_desc),
+                checked = settings.incognitoModeEnabled,
+            ) { settings.incognitoModeEnabled = it }
+            switch(
+                id = "incognitoShowInProfileMenu",
+                title = stringResource(Res.string.incognito_show_in_menu),
+                description = stringResource(Res.string.incognito_show_in_menu_desc),
+                checked = settings.incognitoShowInProfileMenu,
+                enabled = settings.incognitoModeEnabled,
+            ) { settings.incognitoShowInProfileMenu = it }
+            switch(
+                id = "incognitoResetOnRestart",
+                title = stringResource(Res.string.incognito_reset_on_restart),
+                description = stringResource(Res.string.incognito_reset_on_restart_desc),
+                checked = settings.incognitoResetOnRestart,
+                enabled = settings.incognitoModeEnabled,
+            ) { settings.incognitoResetOnRestart = it }
+        }
         group("history", stringResource(Res.string.history)) {
             switch("pauseListenHistory", stringResource(Res.string.pause_listen_history), checked = settings.pauseListenHistory) {
                 settings.pauseListenHistory = it

@@ -18,20 +18,20 @@ internal class YouTubeHistoryOperations(
 ) {
     fun isYouTubeHistoryAvailable(): Boolean = innerTube.hasSapCookieAuth()
 
-    fun isHistorySyncEnabled(): Boolean = isYouTubeHistoryAvailable() && Settings.shared.ytmSync && !Settings.shared.pauseListenHistory
+    fun isHistorySyncEnabled(): Boolean = isYouTubeHistoryAvailable() && Settings.shared.ytmSync && !Settings.shared.listenHistoryPaused
 
     suspend fun getHistory(): List<YouTubeHistoryEntry> = getHistoryResult().entries
 
     suspend fun getHistoryResult(): YouTubeHistoryResult {
         val requestSession = innerTube.sessionSnapshot()
         return try {
-            if (!Settings.shared.ytmSync || Settings.shared.pauseListenHistory || !innerTube.hasSapCookieAuth(requestSession)) {
+            if (!Settings.shared.ytmSync || Settings.shared.listenHistoryPaused || !innerTube.hasSapCookieAuth(requestSession)) {
                 return YouTubeHistoryResult(emptyList(), complete = true)
             }
 
             fun requireHistorySync() {
                 requireCurrentSession(requestSession)
-                if (!Settings.shared.ytmSync || Settings.shared.pauseListenHistory) {
+                if (!Settings.shared.ytmSync || Settings.shared.listenHistoryPaused) {
                     throw CancellationException("History sync disabled")
                 }
             }

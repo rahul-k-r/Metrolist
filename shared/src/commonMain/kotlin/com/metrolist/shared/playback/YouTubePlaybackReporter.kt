@@ -533,7 +533,7 @@ class YouTubePlaybackReporter internal constructor(
                                     with(settings) {
                                         listOf(
                                             queueYouTubeHistoryWhenOffline,
-                                            pauseListenHistory,
+                                            listenHistoryPaused,
                                             ytmSync,
                                             innerTubeCookie,
                                             dataSyncId,

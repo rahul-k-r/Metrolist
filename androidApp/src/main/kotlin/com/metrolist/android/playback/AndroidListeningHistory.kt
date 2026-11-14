@@ -52,13 +52,13 @@ internal class AndroidListeningHistory(
             lastListeningSong = song
             listeningClock.reset()
             listeningIsPlaying = player.isPlaying.value
-            listeningClock.update(listeningIsPlaying, Settings.shared.pauseListenHistory)
+            listeningClock.update(listeningIsPlaying, Settings.shared.listenHistoryPaused)
         }
     }
 
     fun start() {
         scope.launch {
-            snapshotFlow { Settings.shared.pauseListenHistory }.collect(::onHistoryPausedChanged)
+            snapshotFlow { Settings.shared.listenHistoryPaused }.collect(::onHistoryPausedChanged)
         }
         scope.launch {
             observeAndroidScrobbles(player, ::onPlaybackState)
@@ -77,7 +77,7 @@ internal class AndroidListeningHistory(
             listeningSongId = song?.id
         }
         listeningIsPlaying = playing
-        listeningClock.update(playing, Settings.shared.pauseListenHistory)
+        listeningClock.update(playing, Settings.shared.listenHistoryPaused)
     }
 
     internal fun onHistoryPausedChanged(paused: Boolean) {
@@ -91,7 +91,7 @@ internal class AndroidListeningHistory(
         listeningSongId = null
         listeningClock.reset()
         listeningIsPlaying = false
-        if (song != null && enabled && !Settings.shared.pauseListenHistory && playTime >= Settings.shared.historyDuration * 1000L) {
+        if (song != null && enabled && !Settings.shared.listenHistoryPaused && playTime >= Settings.shared.historyDuration * 1000L) {
             val previousWrite = pendingWrite
             pendingWrite =
                 writerScope.launch {

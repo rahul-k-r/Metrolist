@@ -762,6 +762,7 @@ object PlayerState {
     }
 
     val isExpanded: Boolean get() = UiState.playerPresentation.isExpanded
+    val isPaneExpanded: Boolean get() = UiState.playerPresentation.isPaneExpanded
     var isFullscreen: Boolean
         get() = UiState.playerPresentation.isFullscreen
         set(value) {
@@ -1096,13 +1097,27 @@ object PlayerState {
     }
 
     fun enterExpanded() {
+        val wasExpanded = isExpanded
         UiState.playerPresentation.enterExpanded()
         UiState.isPlayerExpanded = true
+        if (!wasExpanded) UiState.restoreExpandedPanels()
     }
 
     fun exitExpanded() {
         UiState.isPlayerExpanded = false
         UiState.playerPresentation.exitExpanded()
+    }
+
+    /** Opens the player inside the main pane with the sidebar kept and the queue docked on the right. */
+    fun enterPaneExpanded() {
+        UiState.isPlayerExpanded = false
+        UiState.playerPresentation.enterPaneExpanded()
+        UiState.playerPanels.canShowBoth = true
+        UiState.playerPanels.restore(queue = true, lyrics = Settings.shared.expandedPlayerShowLyrics)
+    }
+
+    fun exitPaneExpanded() {
+        UiState.playerPresentation.exitPaneExpanded()
     }
 
     fun toggleFullscreenVideo() {

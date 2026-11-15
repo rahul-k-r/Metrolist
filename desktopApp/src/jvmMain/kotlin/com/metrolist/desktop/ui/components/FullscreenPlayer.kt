@@ -76,8 +76,10 @@ import androidx.compose.ui.unit.dp
 import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.state.playback.PlayerState
 import com.metrolist.shared.generated.resources.Res
+import com.metrolist.shared.generated.resources.close
 import com.metrolist.shared.generated.resources.close_fullscreen_player
 import com.metrolist.shared.generated.resources.exit_expanded_mode
+import com.metrolist.shared.generated.resources.expand
 import com.metrolist.shared.generated.resources.lock_queue
 import com.metrolist.shared.generated.resources.n_song
 import com.metrolist.shared.generated.resources.playback_reconnecting
@@ -112,25 +114,27 @@ fun FullscreenPlayerView(
     toggleFullscreen: () -> Unit,
     onFocus: (() -> Unit)? = null,
     onBackgroundFocusChanged: (Boolean) -> Unit = {},
+    inPane: Boolean = false,
 ) {
     val playerBackgroundStyle = Settings.shared.playerBackgroundStyle
     val currentTrack = PlayerState.currentTrack
     val isPlaying = PlayerState.isPlaying
     val fullscreenFocusRequester = remember { FocusRequester() }
     LaunchedEffect(PlayerState.isExpanded) {
-        if (PlayerState.isExpanded) fullscreenFocusRequester.requestFocus()
+        if (PlayerState.isExpanded && !inPane) fullscreenFocusRequester.requestFocus()
     }
 
     val colorScheme = MaterialTheme.colorScheme
 
     fun closeExpandedPlayer() {
-        PlayerState.exitExpanded()
+        if (inPane) PlayerState.exitPaneExpanded() else PlayerState.exitExpanded()
     }
     val isSolid = playerBackgroundStyle == PlayerBackgroundStyle.SOLID
     val baseBackgroundColor = if (isSolid) colorScheme.surfaceContainer else Color.Black
     val iconTint = if (isSolid) colorScheme.onSurface.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.8f)
     val captionInsets =
         when {
+            inPane -> WindowInsets(0)
             PlayerState.isFullscreen || UiState.isNativeFullscreen -> WindowInsets(0)
             OsUtil.isWindows -> LocalCaptionBarInsets.current.only(WindowInsetsSides.Top)
             !Settings.shared.enableSystemWindowFrame -> WindowInsets(top = 32.dp)
@@ -223,9 +227,10 @@ fun FullscreenPlayerView(
                 } else {
                     420.dp
                 }
-            val queueDrawerOpen = UiState.showPersistentPlayerDrawer
+            // In a pane the queue is docked by the main layout, not by this view.
+            val queueDrawerOpen = UiState.showPersistentPlayerDrawer && !inPane
             SideEffect {
-                if (PlayerState.isExpanded) {
+                if (PlayerState.isExpanded && !inPane) {
                     UiState.playerPanels.canShowBoth = availableWidth - preferredWidth > 900.dp
                 }
             }
@@ -302,7 +307,39 @@ fun FullscreenPlayerView(
                 }
 
                 content()
-                if (!OsUtil.isWindows) {
+                if (inPane) {
+                    if (isWide) {
+                        Row(
+                            modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            IconButton(
+                                onClick = { PlayerState.enterExpanded() },
+                                modifier = Modifier.size(44.dp),
+                                shapes = IconButtonDefaults.shapes(),
+                            ) {
+                                Icon(
+                                    imageVector = MetrolistIcons.Outlined.KeyboardArrowUp,
+                                    contentDescription = stringResource(Res.string.expand),
+                                    tint = iconTint,
+                                    modifier = Modifier.size(24.dp),
+                                )
+                            }
+                            IconButton(
+                                onClick = ::closeExpandedPlayer,
+                                modifier = Modifier.size(44.dp),
+                                shapes = IconButtonDefaults.shapes(),
+                            ) {
+                                Icon(
+                                    imageVector = MetrolistIcons.Default.Close,
+                                    contentDescription = stringResource(Res.string.close),
+                                    tint = iconTint,
+                                    modifier = Modifier.size(24.dp),
+                                )
+                            }
+                        }
+                    }
+                } else if (!OsUtil.isWindows) {
                     if (PlayerState.isFullscreen) {
                         closeButton()
                     } else {

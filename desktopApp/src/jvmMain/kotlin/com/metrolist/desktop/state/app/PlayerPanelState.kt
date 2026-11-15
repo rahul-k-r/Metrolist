@@ -17,6 +17,17 @@ internal class PlayerPanelState {
             }
         }
 
+    /** Replaces the open panels; when both are asked for but only one fits, lyrics wins. */
+    fun restore(
+        queue: Boolean,
+        lyrics: Boolean,
+    ) {
+        queueVisible = false
+        lyricsVisible = false
+        if (queue) showQueue = true
+        if (lyrics) showLyrics = true
+    }
+
     var showQueue: Boolean
         get() = queueVisible
         set(value) {

@@ -73,6 +73,8 @@ import com.metrolist.shared.ui.components.lyrics.LyricsSelectionState
 import com.metrolist.shared.ui.components.lyrics.LyricsShareDialog
 import com.metrolist.shared.ui.components.lyrics.LyricsView
 import com.metrolist.shared.ui.icons.MetrolistIcons
+import com.metrolist.shared.ui.menu.cursorContextMenu
+import com.metrolist.shared.ui.menu.rememberCursorContextMenuState
 import com.metrolist.shared.ui.utils.verticalScrollWithDrag
 import org.jetbrains.compose.resources.stringResource
 
@@ -216,12 +218,23 @@ private fun LyricsSection(textSizeMultiplier: Float = 1.2f) {
         targetValue = if (isSolid) colorScheme.onSurface else Color.White,
         label = "LyricsSectionTextColor",
     )
-    Column(modifier = Modifier.fillMaxSize()) {
+    val lyricsMenu = rememberCursorContextMenuState()
+    Column(modifier = Modifier.fillMaxSize().cursorContextMenu(lyricsMenu)) {
         Box(modifier = Modifier.weight(1f)) {
             DesktopLyricsContent(
                 textColor = lyricsTextColor,
                 textSizeMultiplier = textSizeMultiplier,
                 isVisible = UiState.showLyricsDrawer && !UiState.videoFullscreenObscuresPlayer,
+            )
+            LyricsActionsMenuCard(
+                expanded = lyricsMenu.expanded,
+                colorScheme = colorScheme,
+                onDismiss = lyricsMenu::dismiss,
+                onShowLyricsOffset = {
+                    lyricsMenu.dismiss()
+                    LyricsState.showLyricsOffsetEditor = true
+                },
+                offset = lyricsMenu.offset,
             )
         }
         AnimatedVisibility(

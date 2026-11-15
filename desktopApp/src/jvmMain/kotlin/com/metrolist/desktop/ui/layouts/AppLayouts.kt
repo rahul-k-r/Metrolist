@@ -84,6 +84,7 @@ import com.metrolist.desktop.ui.components.DesktopPlayerVisibility
 import com.metrolist.desktop.ui.components.DesktopQueueContent
 import com.metrolist.desktop.ui.components.DeviceConnectModalSideSheet
 import com.metrolist.desktop.ui.components.DeviceConnectSideSheet
+import com.metrolist.desktop.ui.components.FullscreenPlayerView
 import com.metrolist.desktop.ui.components.LyricsDrawer
 import com.metrolist.desktop.ui.components.PersistentPlayerDrawer
 import com.metrolist.desktop.ui.components.StandardBottomPlayer
@@ -385,6 +386,7 @@ private fun WindowScope.AdaptiveDesktopLayout(
     LaunchedEffect(route) {
         routeNavigationId?.let { selectedNavId = it }
         if ((routeNavigationId != null) && (route != Screen.Search)) searchText = ""
+        PlayerState.exitPaneExpanded()
     }
 
     val layoutState =
@@ -446,6 +448,7 @@ private fun WindowScope.AdaptiveDesktopLayout(
                     route = route,
                     libraryGridState = libraryGridState,
                     onLibraryScrollStateChange = { activeLibraryGridState = it },
+                    toggleWindowFullscreen = toggleWindowFullscreen,
                 )
 
                 AddToPlaylistDialog()
@@ -453,7 +456,7 @@ private fun WindowScope.AdaptiveDesktopLayout(
         }
 
         if (!playerInTopBar && PlayerState.currentTrack != null) {
-            DesktopPlayerVisibility(visible = !PlayerState.isExpanded) {
+            DesktopPlayerVisibility(visible = !PlayerState.isExpanded && !PlayerState.isPaneExpanded) {
                 StandardBottomPlayer(colorScheme, toggleWindowFullscreen)
             }
         }
@@ -500,6 +503,7 @@ private fun ColumnScope.MainLayoutContent(
     route: Screen,
     libraryGridState: LazyGridState,
     onLibraryScrollStateChange: (LazyGridState) -> Unit,
+    toggleWindowFullscreen: () -> Unit,
 ) {
     BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxSize()) {
         val availableSupportingWidth = (maxWidth - LayoutConstants.MinimumPrimaryPaneWidth).coerceAtLeast(0.dp)
@@ -509,14 +513,15 @@ private fun ColumnScope.MainLayoutContent(
         val deviceConnectOverlaysContent = maxWidth - deviceConnectWidth < LayoutConstants.MinimumPrimaryPaneWidth
 
         SideEffect {
-            if (!PlayerState.isExpanded) {
+            if (!PlayerState.isExpanded && !PlayerState.isPaneExpanded) {
                 UiState.playerPanels.canShowBoth = availableSupportingWidth >= 560.dp
             }
             UiState.isDeviceConnectPanelModal = deviceConnectOverlaysContent
         }
 
         val isQueueOpen = UiState.showPersistentPlayerDrawer && PlayerState.currentTrack != null
-        val isLyricsOpen = UiState.showLyricsDrawer && PlayerState.currentTrack != null
+        // In pane mode the lyrics live inside the player itself.
+        val isLyricsOpen = UiState.showLyricsDrawer && PlayerState.currentTrack != null && !PlayerState.isPaneExpanded
         val density = LocalDensity.current
 
         var queuePaneWidth by remember { mutableStateOf(360.dp) }
@@ -549,6 +554,7 @@ private fun ColumnScope.MainLayoutContent(
                     colorScheme = colorScheme,
                     libraryGridState = libraryGridState,
                     onLibraryScrollStateChange = onLibraryScrollStateChange,
+                    toggleWindowFullscreen = toggleWindowFullscreen,
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                 )
 
@@ -663,6 +669,7 @@ private fun StandardContentSurface(
     colorScheme: ColorScheme,
     libraryGridState: LazyGridState,
     onLibraryScrollStateChange: (LazyGridState) -> Unit,
+    toggleWindowFullscreen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -670,6 +677,14 @@ private fun StandardContentSurface(
         shape = RoundedCornerShape(16.dp),
         color = colorScheme.surface,
     ) {
+        if (PlayerState.isPaneExpanded && PlayerState.currentTrack != null) {
+            FullscreenPlayerView(
+                seedColor = UiState.seedColor,
+                toggleFullscreen = toggleWindowFullscreen,
+                inPane = true,
+            )
+            return@Surface
+        }
         Box(modifier = Modifier.fillMaxSize()) {
             AppContentHost(
                 route = route,

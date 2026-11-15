@@ -29,6 +29,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -560,7 +561,12 @@ fun StandardBottomPlayer(
             Modifier
                 .fillMaxWidth()
                 .cursorContextMenu(playerMenu)
-                .background(colorScheme.surfaceContainer),
+                .background(colorScheme.surfaceContainer)
+                // Controls and text consume their own clicks; anything else opens the expanded player.
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() },
+                ) { PlayerState.enterExpanded() },
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             StandardPlayerProgress(colorScheme)
@@ -612,10 +618,12 @@ fun StandardBottomPlayer(
                                     .songThumbSize(PlayerState.currentTrack, 44.dp)
                                     .clip(RoundedCornerShape(uiEnhanced(4.dp, 8.dp)))
                                     .hoverable(compactCoverInteractionSource)
-                                    .clickable(
+                                    .combinedClickable(
                                         indication = null,
                                         interactionSource = remember { MutableInteractionSource() },
-                                    ) { PlayerState.enterExpanded() },
+                                        onDoubleClick = { PlayerState.enterPaneExpanded() },
+                                        onClick = { PlayerState.enterExpanded() },
+                                    ),
                         ) {
                             AsyncImage(
                                 url = PlayerState.currentArtworkUrl ?: "",
@@ -852,10 +860,12 @@ fun StandardBottomPlayer(
                                         .songThumbSize(PlayerState.currentTrack, 48.dp)
                                         .clip(RoundedCornerShape(uiEnhanced(4.dp, 8.dp)))
                                         .hoverable(standardCoverInteractionSource)
-                                        .clickable(
+                                        .combinedClickable(
                                             indication = null,
                                             interactionSource = remember { MutableInteractionSource() },
-                                        ) { PlayerState.enterExpanded() },
+                                            onDoubleClick = { PlayerState.enterPaneExpanded() },
+                                            onClick = { PlayerState.enterExpanded() },
+                                        ),
                             ) {
                                 AsyncImage(
                                     url = PlayerState.currentArtworkUrl ?: "",

@@ -8,6 +8,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -160,7 +161,14 @@ fun PlayerCoreContent(
 
     val content = @Composable {
         Box(
-            modifier = Modifier.desktopPlayerArtwork(currentTrack?.id),
+            modifier =
+                Modifier
+                    .desktopPlayerArtwork(currentTrack?.id)
+                    .clickable(
+                        enabled = !isListenTogetherGuest,
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() },
+                    ) { PlayerState.togglePlay() },
             contentAlignment = Alignment.Center,
         ) {
             var hasAnimatedFrame by remember(PlayerState.animatedCoverUrl) { mutableStateOf(false) }

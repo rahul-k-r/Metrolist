@@ -60,6 +60,7 @@ object UiState {
         get() = playerPanels.showQueue
         set(value) {
             playerPanels.showQueue = value
+            rememberExpandedPanels()
         }
     var isSearchFocused by mutableStateOf(false)
     var isTextInputFocused by mutableStateOf(false)
@@ -67,6 +68,7 @@ object UiState {
         get() = playerPanels.showLyrics
         set(value) {
             playerPanels.showLyrics = value
+            rememberExpandedPanels()
         }
     var showDeviceConnectPanel by mutableStateOf(false)
     var isDeviceConnectPanelModal by mutableStateOf(false)
@@ -108,6 +110,17 @@ object UiState {
     var appRefreshKey by mutableStateOf(0)
 
     var restartRequested by mutableStateOf(false)
+
+    /** Panel changes made while the expanded player is open are what it shows next time. */
+    private fun rememberExpandedPanels() {
+        if (!playerPresentation.isExpanded) return
+        Settings.shared.expandedPlayerShowQueue = playerPanels.showQueue
+        Settings.shared.expandedPlayerShowLyrics = playerPanels.showLyrics
+    }
+
+    fun restoreExpandedPanels() {
+        playerPanels.restore(Settings.shared.expandedPlayerShowQueue, Settings.shared.expandedPlayerShowLyrics)
+    }
 
     fun toggleDeviceConnectPanel() {
         showDeviceConnectPanel = !showDeviceConnectPanel

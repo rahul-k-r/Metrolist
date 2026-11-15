@@ -126,6 +126,7 @@ fun LyricsActionsMenuCard(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     onShowLyricsOffset: () -> Unit = { LyricsState.showLyricsOffsetEditor = true },
+    offset: DpOffset = DpOffset.Zero,
 ) {
     var respectAgentPositioning by remember { mutableStateOf(Settings.shared.respectAgentPositioning) }
     var showIntervalIndicator by remember { mutableStateOf(true) }
@@ -187,7 +188,7 @@ fun LyricsActionsMenuCard(
 
     CursorDropdownMenu(
         expanded = expanded,
-        offset = DpOffset.Zero,
+        offset = offset,
         onDismissRequest = onDismiss,
         modifier = modifier.width(320.dp),
     ) {

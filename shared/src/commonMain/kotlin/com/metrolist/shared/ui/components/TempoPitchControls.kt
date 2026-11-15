@@ -23,6 +23,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSliderState
@@ -61,8 +62,11 @@ import com.metrolist.shared.generated.resources.tempo_pitch_increase
 import com.metrolist.shared.generated.resources.tempo_pitch_input_range
 import com.metrolist.shared.generated.resources.tempo_pitch_preset_name
 import com.metrolist.shared.generated.resources.tempo_pitch_presets
+import com.metrolist.shared.generated.resources.tempo_pitch_remember_song
 import com.metrolist.shared.generated.resources.tempo_pitch_save_preset
 import com.metrolist.shared.settings.Settings
+import com.metrolist.shared.settings.SongTempoPitch
+import com.metrolist.shared.settings.SongTempoPitchValue
 import com.metrolist.shared.ui.haptics.HapticEvent
 import com.metrolist.shared.ui.haptics.SliderDetents
 import com.metrolist.shared.ui.haptics.rememberMetrolistHaptics
@@ -86,8 +90,17 @@ fun TempoPitchControls(
     onPitchChange: ((Float) -> Unit)?,
     speedEnabled: Boolean = true,
     varispeed: Boolean = false,
+    songId: String? = null,
     onDone: () -> Unit,
 ) {
+    val savedForSong = songId?.let { SongTempoPitch.get(Settings.shared.songTempoPitchJson, it) }
+    // While a song has a saved value, keep it in step with what the sliders show.
+    LaunchedEffect(songId, speed, pitch) {
+        if (songId != null && SongTempoPitch.get(Settings.shared.songTempoPitchJson, songId) != null) {
+            Settings.shared.songTempoPitchJson =
+                SongTempoPitch.set(Settings.shared.songTempoPitchJson, songId, SongTempoPitchValue(speed, pitch))
+        }
+    }
     val speedLabel = stringResource(Res.string.playback_speed)
     val pitchLabel = stringResource(Res.string.playback_pitch)
     val semitones = playbackPitchToSemitones(pitch)
@@ -172,6 +185,22 @@ fun TempoPitchControls(
                 showTicks = false,
                 onValueChange = { onPitchChange(semitonesToPlaybackPitch(it)) },
             )
+        }
+        if (songId != null) {
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(Res.string.tempo_pitch_remember_song), Modifier.weight(1f))
+                Switch(
+                    checked = savedForSong != null,
+                    onCheckedChange = { on ->
+                        Settings.shared.songTempoPitchJson =
+                            if (on) {
+                                SongTempoPitch.set(Settings.shared.songTempoPitchJson, songId, SongTempoPitchValue(speed, pitch))
+                            } else {
+                                SongTempoPitch.remove(Settings.shared.songTempoPitchJson, songId)
+                            }
+                    },
+                )
+            }
         }
         TextButton(modifier = Modifier.navigationPopupSource(), onClick = {
             presetName = ""

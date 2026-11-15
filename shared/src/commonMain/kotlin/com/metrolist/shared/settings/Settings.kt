@@ -542,6 +542,7 @@ class Settings(
     var skipMarkingEnabled by preference(false)
     var skipMarksJson by preference("")
     var providerLyricsOffsetsJson by preference("")
+    var songTempoPitchJson by preference("")
 
     val isIncognito: Boolean get() = IncognitoPolicy.isIncognito(incognitoModeEnabled, incognitoActive)
 

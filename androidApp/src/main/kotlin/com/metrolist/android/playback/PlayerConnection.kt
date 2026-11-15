@@ -41,6 +41,7 @@ import com.metrolist.shared.playback.shouldPlayAfterSongChange
 import com.metrolist.shared.settings.BlockedContent
 import com.metrolist.shared.settings.MusicVideoQuality
 import com.metrolist.shared.settings.Settings
+import com.metrolist.shared.settings.SongTempoPitch
 import com.metrolist.shared.state.GlobalYouTubeRepository
 import com.metrolist.shared.utils.normalizePlaybackTempo
 import com.metrolist.shared.youtube.playback.PlaybackResource
@@ -57,7 +58,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.dropWhile
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -507,9 +511,37 @@ class PlayerConnection(
             }
     }
 
+    /** Plays [songId] at its saved speed/pitch, or the global values; never writes the global settings. */
+    private fun applySongTempoPitch(
+        player: AndroidPlaybackPlayer,
+        songId: String,
+    ) {
+        if (AndroidDeviceConnect.manager.remote.isActive) return
+        if (AndroidListenTogetherManager.currentManager?.isInRoom?.value == true) return
+        val value =
+            SongTempoPitch.effective(
+                Settings.shared.songTempoPitchJson,
+                songId,
+                Settings.shared.playbackSpeed,
+                Settings.shared.playbackPitch,
+            )
+        normalizePlaybackTempo(value.speed)?.let(player::setPlaybackSpeed)
+        normalizePlaybackTempo(value.pitch)?.let(player::setPlaybackPitch)
+    }
+
+    private fun currentSongHasSavedTempoPitch(): Boolean =
+        currentSong.value?.id?.let { SongTempoPitch.get(Settings.shared.songTempoPitchJson, it) } != null
+
     private fun observeService(service: MusicService) {
         val scope = checkNotNull(observationScope)
         val player = service.player
+        scope.launch {
+            currentSong
+                .map { it?.id }
+                .distinctUntilChanged()
+                .filterNotNull()
+                .collect { applySongTempoPitch(player, it) }
+        }
         updatePlaybackState(player.playbackState)
         player.addPlayerListener(readinessListener)
         wantsPlaybackMutableState.value = player.wantsPlayback
@@ -1144,14 +1176,14 @@ class PlayerConnection(
     fun setPlaybackPitch(pitch: Float) {
         val normalizedPitch = normalizePlaybackTempo(pitch) ?: return
         if (AndroidDeviceConnect.manager.remote.intercept(DcPlaybackCommand(DcPlaybackAction.PITCH, pitch = normalizedPitch))) return
-        Settings.shared.playbackPitch = normalizedPitch
+        if (!currentSongHasSavedTempoPitch()) Settings.shared.playbackPitch = normalizedPitch
         musicService?.player?.setPlaybackPitch(normalizedPitch)
     }
 
     override fun setPlaybackSpeed(speed: Float) {
         val normalizedSpeed = normalizePlaybackTempo(speed) ?: return
         if (AndroidDeviceConnect.intercept(DcPlaybackCommand(DcPlaybackAction.SPEED, speed = normalizedSpeed))) return
-        Settings.shared.playbackSpeed = normalizedSpeed
+        if (!currentSongHasSavedTempoPitch()) Settings.shared.playbackSpeed = normalizedSpeed
         musicService?.player?.setPlaybackSpeed(normalizedSpeed)
     }
 

@@ -525,6 +525,7 @@ fun PlayerMenuPanel(
                     PlayerState::setPlaybackPitch,
                     speedEnabled = !isInListenTogetherRoom,
                     varispeed = varispeed,
+                    songId = currentTrack?.id,
                     onDone = { showTempoPitch = false },
                 )
             },

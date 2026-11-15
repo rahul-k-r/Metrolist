@@ -108,6 +108,7 @@ import com.metrolist.shared.settings.BlockedContent
 import com.metrolist.shared.settings.IncognitoPlayback
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.settings.SkipMarks
+import com.metrolist.shared.settings.SongTempoPitch
 import com.metrolist.shared.state.GlobalYouTube
 import com.metrolist.shared.state.GlobalYouTubeRepository
 import com.metrolist.shared.state.PodcastLibrary
@@ -1230,10 +1231,29 @@ object PlayerState {
         newTrack: SongItem?,
         startArtworkFetch: Boolean = true,
     ) {
+        val previousId = currentTrack?.id
         currentTrack = newTrack?.let(SongMetadataState::apply)
         artworkPreview = artworkPreview.forTrack(currentTrack?.id, currentArtworkUrl)
         artwork.updateTrack(currentTrack, startArtworkFetch)
+        if (newTrack != null && newTrack.id != previousId) applySongTempoPitch(newTrack.id)
     }
+
+    /** Plays [songId] at its saved speed/pitch, or the global values; never writes the global settings. */
+    private fun applySongTempoPitch(songId: String) {
+        if (ListenTogetherState.listenTogetherManager.isInRoom.value || deviceConnect.isActive) return
+        val value =
+            SongTempoPitch.effective(
+                Settings.shared.songTempoPitchJson,
+                songId,
+                Settings.shared.playbackSpeed,
+                Settings.shared.playbackPitch,
+            )
+        applyPlaybackSpeed(value.speed)
+        player.setPlaybackPitch(value.pitch.coerceIn(0.5f, 2f))
+    }
+
+    private fun currentSongHasSavedTempoPitch(): Boolean =
+        currentTrack?.id?.let { SongTempoPitch.get(Settings.shared.songTempoPitchJson, it) } != null
 
     init {
         scope.launch { playbackUiVisible.collect(player::setProgressUiVisible) }
@@ -2581,7 +2601,7 @@ object PlayerState {
         val normalizedSpeed = speed.coerceIn(0.5f, 2f)
         if (deviceConnect.intercept(DcPlaybackCommand(DcPlaybackAction.SPEED, speed = normalizedSpeed))) return
         if (ListenTogetherState.listenTogetherManager.isInRoom.value) return
-        Settings.shared.playbackSpeed = normalizedSpeed
+        if (!currentSongHasSavedTempoPitch()) Settings.shared.playbackSpeed = normalizedSpeed
         applyPlaybackSpeed(normalizedSpeed)
     }
 
@@ -2595,7 +2615,7 @@ object PlayerState {
         if (!pitch.isFinite()) return
         val normalizedPitch = pitch.coerceIn(0.5f, 2f)
         if (deviceConnect.intercept(DcPlaybackCommand(DcPlaybackAction.PITCH, pitch = normalizedPitch))) return
-        Settings.shared.playbackPitch = normalizedPitch
+        if (!currentSongHasSavedTempoPitch()) Settings.shared.playbackPitch = normalizedPitch
         player.setPlaybackPitch(normalizedPitch)
     }
 

@@ -219,6 +219,7 @@ fun PlayerMenu(
                                 onPitchChange = onPlaybackPitchChange,
                                 speedEnabled = !isInListenTogetherRoom,
                                 varispeed = Settings.shared.varispeed,
+                                songId = currentSong?.id,
                                 onDone = onBack,
                             )
                         }
@@ -277,6 +278,7 @@ fun PlayerMenu(
                             onPitchChange = onPlaybackPitchChange,
                             speedEnabled = !isInListenTogetherRoom,
                             varispeed = Settings.shared.varispeed,
+                            songId = currentSong?.id,
                             onBack = { showPlaybackSpeed = false },
                         )
                     } else {
@@ -584,6 +586,7 @@ private fun PlaybackSpeedPage(
     onPitchChange: (Float) -> Unit,
     speedEnabled: Boolean,
     varispeed: Boolean,
+    songId: String?,
     onBack: () -> Unit,
 ) {
     Column(
@@ -599,7 +602,7 @@ private fun PlaybackSpeedPage(
             fontWeight = FontWeight.Bold,
         )
 
-        TempoPitchControls(speed, pitch, onSpeedChange, onPitchChange, speedEnabled, varispeed, onDone = onBack)
+        TempoPitchControls(speed, pitch, onSpeedChange, onPitchChange, speedEnabled, varispeed, songId = songId, onDone = onBack)
     }
 }
 

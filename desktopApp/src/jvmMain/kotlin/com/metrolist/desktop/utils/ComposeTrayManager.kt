@@ -6,6 +6,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -49,13 +50,17 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.jetbrains.compose.resources.stringResource
 import java.awt.EventQueue
+import java.awt.Toolkit
 import java.awt.Window
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.milliseconds
 
 private const val TRAY_RECENT_LIMIT = 8
 private const val TRAY_PLAYLIST_LIMIT = 15
 
 object ComposeTrayManager {
+    private val clickScheduler = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "tray-click").apply { isDaemon = true } }
     private var windowState: WindowState? = null
     private var mainWindow: Window? = null
     private var onQuit: (() -> Unit)? = null
@@ -192,23 +197,52 @@ object ComposeTrayManager {
         val recentSongs by recentFlow.collectAsState(emptyList())
         val libraryPlaylists = LibraryContentState.userPlaylists
 
-        val tooltip =
+        val playingText =
             currentTrack?.let { track ->
                 val artistStr = track.artists.joinToString { it.displayName }.takeIf { it.isNotBlank() } ?: strUnknown
-                val title = track.title.takeIf { it.isNotBlank() } ?: strUnknownTitle
-                if (isPlaying) {
-                    stringResource(Res.string.tray_tooltip_playing, title, artistStr)
-                } else {
-                    stringResource(Res.string.tray_tooltip_paused, title, artistStr)
+                stringResource(Res.string.tray_tooltip_playing, track.title.takeIf { it.isNotBlank() } ?: strUnknownTitle, artistStr)
+            }
+        val pausedText =
+            currentTrack?.let { track ->
+                val artistStr = track.artists.joinToString { it.displayName }.takeIf { it.isNotBlank() } ?: strUnknown
+                stringResource(Res.string.tray_tooltip_paused, track.title.takeIf { it.isNotBlank() } ?: strUnknownTitle, artistStr)
+            }
+        val tooltip = (if (isPlaying) playingText else pausedText) ?: "Metrolist"
+
+        // Click to play/pause: held back one double-click interval so a double click can open the app instead.
+        val singleClick by rememberUpdatedState {
+            EventQueue.invokeLater {
+                if (!isListenTogetherGuest && PlayerState.currentTrack != null) {
+                    val willPlay = !PlayerState.isPlaying
+                    PlayerState.togglePlay()
+                    TrayToast.show((if (willPlay) playingText else pausedText).orEmpty())
                 }
-            } ?: "Metrolist"
+            }
+        }
+        val clickGate =
+            remember {
+                TrayClickGate(
+                    intervalMs = {
+                        ((Toolkit.getDefaultToolkit().getDesktopProperty("awt.multiClickInterval") as? Int) ?: 500)
+                            .toLong()
+                            .coerceIn(250L, 500L)
+                    },
+                    schedule = { delayMs, task ->
+                        val future = clickScheduler.schedule(task, delayMs, TimeUnit.MILLISECONDS)
+                        val cancel: () -> Boolean = { future.cancel(false) }
+                        cancel
+                    },
+                    onSingle = { singleClick() },
+                    onDouble = { showWindow() },
+                )
+            }
 
         Tray(
             icon = icon,
             tooltip = tooltip,
             primaryAction = {
                 if (Settings.shared.desktopTrayClickPlayPause) {
-                    if (!isListenTogetherGuest && PlayerState.currentTrack != null) PlayerState.togglePlay()
+                    clickGate.click()
                 } else if (Settings.shared.desktopTrayToggleOnClick) {
                     if (isWindowVisible.value) {
                         hideWindow()

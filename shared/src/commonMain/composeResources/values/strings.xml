@@ -5258,6 +5258,7 @@
     <string name="global_lyrics_offset">Global lyrics offset</string>
     <string name="global_lyrics_offset_description">This offset applies to all songs in addition to each song's adjustment. Positive values show lyrics earlier. Negative values show them later.</string>
     <string name="tempo_pitch_presets">Saved presets</string>
+    <string name="tempo_pitch_remember_song">Always use for this song</string>
     <string name="tempo_pitch_save_preset">Save preset</string>
     <string name="tempo_pitch_preset_name">Preset name</string>
     <string name="tempo_pitch_delete_preset">Delete preset “%1$s”?</string>
@@ -5535,7 +5536,7 @@
     <!-- Translators: Settings switch title. Marked songs are left out of queues the app builds. -->
     <string name="skip_marking">Skip marked songs</string>
     <!-- Translators: Settings switch description for skip marking. -->
-    <string name="skip_marking_desc">Songs you mark are left out of queues, radio and autoplay. Songs you pick yourself still play.</string>
+    <string name="skip_marking_desc">Songs you mark are left out of queues, radio and autoplay. Songs you pick yourself still play, and so does everything you add to the queue by hand, including a whole playlist or album.</string>
     <!-- Translators: Song menu item that marks a song to be skipped in automatic queues. -->
     <string name="skip_mark_song">Skip in automatic queues</string>
     <!-- Translators: Song menu item that removes the skip mark from a song. -->

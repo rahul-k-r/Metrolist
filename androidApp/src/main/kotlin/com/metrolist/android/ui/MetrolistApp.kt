@@ -794,8 +794,10 @@ fun MetrolistApp(
         // Reserve navigation space while system bars return from immersive playback.
         val navigationBarBottomPadding = WindowInsets.navigationBarsIgnoringVisibility.asPaddingValues().calculateBottomPadding()
         val density = LocalDensity.current
-        var navigationBarContentInset by remember(navigationSuiteType, useFloatingNavBar) { mutableStateOf(0.dp) }
-        var floatingNavBarHeight by remember(navigationSuiteType, useFloatingNavBar) { mutableStateOf(0.dp) }
+        // Not keyed on the nav type: the size callbacks that feed these only re-fire when a size changes, so
+        // resetting to 0 here left the mini player's collapsed bound wrong (bar hidden) until a screen change.
+        var navigationBarContentInset by remember { mutableStateOf(0.dp) }
+        var floatingNavBarHeight by remember { mutableStateOf(0.dp) }
         val safeBottomPadding =
             maxOf(
                 navigationBarBottomPadding,

@@ -68,6 +68,7 @@ import com.metrolist.shared.generated.resources.no_device_found
 import com.metrolist.shared.generated.resources.no_other_devices_nearby
 import com.metrolist.shared.generated.resources.none
 import com.metrolist.shared.generated.resources.scrobble_connecting
+import com.metrolist.shared.generated.resources.this_device
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.utils.toPolygonShape
@@ -174,7 +175,8 @@ fun ConnectedDevicesContent(
                 }
             }
             DeviceSectionTitle(stringResource(Res.string.available_devices))
-            if (availableCast.isEmpty() && availablePeers.isEmpty()) {
+            val thisDeviceAction = thisDeviceAction(activeCast != null, activePeer != null)
+            if (availableCast.isEmpty() && availablePeers.isEmpty() && thisDeviceAction == null) {
                 Text(
                     stringResource(Res.string.no_other_devices_nearby),
                     style = MaterialTheme.typography.bodyMedium,
@@ -183,13 +185,31 @@ fun ConnectedDevicesContent(
                 )
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    val count = availableCast.size + availablePeers.size
+                    val thisDeviceRows = if (thisDeviceAction != null) 1 else 0
+                    val count = thisDeviceRows + availableCast.size + availablePeers.size
+                    // Playing here again must not require disconnecting from the target first.
+                    if (thisDeviceAction != null) {
+                        ConnectedDeviceRow(
+                            stringResource(Res.string.this_device),
+                            stringResource(Res.string.app_name),
+                            MetrolistIcons.Outlined.Devices,
+                            0,
+                            count,
+                            enabled = castState.status != CastConnectionStatus.CONNECTING,
+                            onClick = {
+                                when (thisDeviceAction) {
+                                    ThisDeviceAction.DISCONNECT_CAST -> onDisconnectCast()
+                                    ThisDeviceAction.PULL_BACK -> deviceState?.localDeviceId?.let(onTransferTo)
+                                }
+                            },
+                        )
+                    }
                     availableCast.forEachIndexed { index, device ->
                         ConnectedDeviceRow(
                             device.name,
                             protocolName(device.protocol),
                             MetrolistIcons.Outlined.Cast,
-                            index,
+                            index + thisDeviceRows,
                             count,
                             enabled = castState.status != CastConnectionStatus.CONNECTING,
                             onClick = { onDeviceClick(device) },
@@ -200,7 +220,7 @@ fun ConnectedDevicesContent(
                             peer.name,
                             stringResource(Res.string.app_name),
                             MetrolistIcons.Outlined.Devices,
-                            index + availableCast.size,
+                            index + thisDeviceRows + availableCast.size,
                             count,
                             enabled = !castState.isConnected && castState.status != CastConnectionStatus.CONNECTING,
                             onClick = { onTransferTo(peer.id) },
@@ -273,6 +293,19 @@ fun ConnectedDevicesContent(
         Spacer(Modifier.height(8.dp))
     }
 }
+
+internal enum class ThisDeviceAction { DISCONNECT_CAST, PULL_BACK }
+
+/** What choosing this device does while playback is routed elsewhere; null when it already plays here. */
+internal fun thisDeviceAction(
+    castActive: Boolean,
+    peerActive: Boolean,
+): ThisDeviceAction? =
+    when {
+        castActive -> ThisDeviceAction.DISCONNECT_CAST
+        peerActive -> ThisDeviceAction.PULL_BACK
+        else -> null
+    }
 
 @Composable
 private fun DeviceSectionTitle(title: String) {

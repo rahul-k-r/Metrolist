@@ -49,6 +49,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -140,6 +141,7 @@ import com.metrolist.desktop.utils.SystemMediaManager
 import com.metrolist.desktop.utils.ThemeUtils
 import com.metrolist.desktop.utils.WaylandScale
 import com.metrolist.desktop.utils.WindowsAppIdentity
+import com.metrolist.desktop.utils.WindowsAutostart
 import com.metrolist.desktop.utils.configureDesktopJvmErrorFile
 import com.metrolist.desktop.utils.configureLinuxWebKitRenderer
 import com.metrolist.desktop.utils.desktopRenderApiOverride
@@ -1433,8 +1435,14 @@ private fun runDesktopApp(args: Array<String>) {
                     }
                 }
                 startup.appFrame.await()
+                if (Settings.shared.startMinimizedToTray) ComposeTrayManager.hideWindow()
                 if (!OsUtil.isMac) withContext(Dispatchers.IO) { DesktopUrlHandler.install() }
                 DesktopUrlHandler.onUiReady()
+            }
+
+            LaunchedEffect(Unit) {
+                snapshotFlow { Settings.shared.startWithSystem }
+                    .collect { enabled -> withContext(Dispatchers.IO) { WindowsAutostart.sync(enabled) } }
             }
 
             LaunchedEffect(UiState.restartRequested) {

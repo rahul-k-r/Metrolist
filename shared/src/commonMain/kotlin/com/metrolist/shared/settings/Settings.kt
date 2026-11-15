@@ -869,6 +869,13 @@ class Settings(
     var enableSystemWindowFrame by preference(false)
     var minimizeToTrayOnClose by preference(defaultMinimizeToTrayOnClose())
     var desktopTrayToggleOnClick by preference(true)
+
+    /** When set, a tray click pauses or resumes playback instead of showing or hiding the window. */
+    var desktopTrayClickPlayPause by preference(false)
+    var startMinimizedToTray by preference(false)
+
+    /** Intent only; the desktop app mirrors it into the OS login-item registration. */
+    var startWithSystem by preference(false)
     var waylandDefaultFrameApplied by preference(false)
     var disableWaylandScaleFix by preference(false)
     var macDefaultFrameApplied by preference(false)

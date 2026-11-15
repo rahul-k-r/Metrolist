@@ -306,6 +306,24 @@ internal fun SettingsUiRegistryBuilder.registerAppearanceSettings(host: SharedSe
                     description = stringResource(Res.string.desktop_tray_toggle_on_click_desc),
                     checked = settings.desktopTrayToggleOnClick,
                 ) { settings.desktopTrayToggleOnClick = it }
+                switch(
+                    id = "desktopTrayClickPlayPause",
+                    title = stringResource(Res.string.desktop_tray_click_play_pause),
+                    description = stringResource(Res.string.desktop_tray_click_play_pause_desc),
+                    checked = settings.desktopTrayClickPlayPause,
+                ) { settings.desktopTrayClickPlayPause = it }
+                switch(
+                    id = "startMinimizedToTray",
+                    title = stringResource(Res.string.desktop_start_minimized),
+                    description = stringResource(Res.string.desktop_start_minimized_desc),
+                    checked = settings.startMinimizedToTray,
+                ) { settings.startMinimizedToTray = it }
+                switch(
+                    id = "startWithSystem",
+                    title = stringResource(Res.string.desktop_start_with_system),
+                    description = stringResource(Res.string.desktop_start_with_system_desc),
+                    checked = settings.startWithSystem,
+                ) { settings.startWithSystem = it }
             }
         }
         if (host.platform != SettingsPlatform.DESKTOP) {

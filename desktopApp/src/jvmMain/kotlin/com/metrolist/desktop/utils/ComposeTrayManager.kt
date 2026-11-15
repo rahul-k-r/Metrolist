@@ -12,6 +12,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.window.WindowState
 import com.metrolist.desktop.state.app.DesktopNavigation
 import com.metrolist.desktop.state.app.UiState
+import com.metrolist.desktop.state.content.LibraryContentState
+import com.metrolist.shared.generated.resources.add_to_queue
+import com.metrolist.shared.generated.resources.play_next
+import com.metrolist.shared.generated.resources.playlists
+import com.metrolist.shared.generated.resources.tray_recently_played
+import kotlinx.coroutines.flow.flowOf
 import com.metrolist.desktop.state.playback.ListenTogetherState
 import com.metrolist.desktop.state.playback.PlayerState
 import com.metrolist.shared.generated.resources.Res
@@ -44,6 +50,9 @@ import org.jetbrains.compose.resources.stringResource
 import java.awt.EventQueue
 import java.awt.Window
 import kotlin.time.Duration.Companion.milliseconds
+
+private const val TRAY_RECENT_LIMIT = 8
+private const val TRAY_PLAYLIST_LIMIT = 15
 
 object ComposeTrayManager {
     private var windowState: WindowState? = null
@@ -173,6 +182,13 @@ object ComposeTrayManager {
         val strSettings = stringResource(Res.string.tray_settings)
         val strQuitMetrolist = stringResource(Res.string.tray_quit_metrolist)
         val strTrayByTemplate = stringResource(Res.string.tray_by)
+        val strRecentlyPlayed = stringResource(Res.string.tray_recently_played)
+        val strPlaylists = stringResource(Res.string.playlists)
+        val strPlayNext = stringResource(Res.string.play_next)
+        val strAddToQueue = stringResource(Res.string.add_to_queue)
+        val recentFlow = remember { runCatching { TrayRecentSongs.flow(TRAY_RECENT_LIMIT) }.getOrElse { flowOf(emptyList()) } }
+        val recentSongs by recentFlow.collectAsState(emptyList())
+        val libraryPlaylists = LibraryContentState.userPlaylists
 
         val tooltip =
             currentTrack?.let { track ->
@@ -189,7 +205,9 @@ object ComposeTrayManager {
             icon = icon,
             tooltip = tooltip,
             primaryAction = {
-                if (Settings.shared.desktopTrayToggleOnClick) {
+                if (Settings.shared.desktopTrayClickPlayPause) {
+                    if (!isListenTogetherGuest && PlayerState.currentTrack != null) PlayerState.togglePlay()
+                } else if (Settings.shared.desktopTrayToggleOnClick) {
                     if (isWindowVisible.value) {
                         hideWindow()
                     } else {
@@ -233,6 +251,29 @@ object ComposeTrayManager {
 
                     Divider()
                 }
+
+                if (!isListenTogetherGuest && recentSongs.isNotEmpty()) {
+                    SubMenu(label = strRecentlyPlayed) {
+                        recentSongs.forEach { song ->
+                            SubMenu(label = song.title.takeIf { it.isNotBlank() } ?: strUnknownTitle) {
+                                Item(label = strPlay) { PlayerState.playTrack(song, recentSongs) }
+                                Item(label = strPlayNext) { PlayerState.playNext(song) }
+                                Item(label = strAddToQueue) { PlayerState.addToQueue(song) }
+                            }
+                        }
+                    }
+                }
+                if (libraryPlaylists.isNotEmpty()) {
+                    SubMenu(label = strPlaylists) {
+                        libraryPlaylists.take(TRAY_PLAYLIST_LIMIT).forEach { playlist ->
+                            Item(label = playlist.name) {
+                                showWindow()
+                                EventQueue.invokeLater { DesktopNavigation.navigate(Screen.Playlist(playlist.id)) }
+                            }
+                        }
+                    }
+                }
+                if (recentSongs.isNotEmpty() || libraryPlaylists.isNotEmpty()) Divider()
 
                 Item(
                     label = if (isWindowVisible.value) strHideWindow else strShowWindow,

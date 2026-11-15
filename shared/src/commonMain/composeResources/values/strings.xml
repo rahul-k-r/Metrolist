@@ -4426,8 +4426,22 @@
     <string name="desktop_minimize_to_tray_desc">Closing the window will minimize Metrolist to the tray instead</string>
     <string name="desktop_tray_toggle_on_click">Hide or show on tray click</string>
     <string name="desktop_tray_toggle_on_click_desc">Left-clicking the tray icon will open or close the Metrolist window</string>
+    <!-- Translators: Switch title in desktop settings. Clicking the system tray icon pauses or resumes music. -->
+    <string name="desktop_tray_click_play_pause">Play or pause on tray click</string>
+    <!-- Translators: Switch description. Takes priority over showing or hiding the window. -->
+    <string name="desktop_tray_click_play_pause_desc">Left-clicking the tray icon will pause or resume playback instead of opening the window</string>
+    <!-- Translators: Switch title in desktop settings. -->
+    <string name="desktop_start_minimized">Start minimized</string>
+    <!-- Translators: Switch description in desktop settings. -->
+    <string name="desktop_start_minimized_desc">Open Metrolist in the tray without showing the window</string>
+    <!-- Translators: Switch title in desktop settings. Launches the app when the user signs in to the computer. -->
+    <string name="desktop_start_with_system">Start with Windows</string>
+    <!-- Translators: Switch description in desktop settings. Only applies to the installed app on Windows. -->
+    <string name="desktop_start_with_system_desc">Launch Metrolist when you sign in to Windows (installed app only)</string>
     <!-- Translators: Imperative action label for show miniplayer in the desktop system tray. -->
     <string name="tray_show_miniplayer">Show miniplayer</string>
+    <!-- Translators: Submenu title in the desktop system tray listing the songs played most recently. -->
+    <string name="tray_recently_played">Recently played</string>
     <!-- Translators: Label for tray settings in the desktop system tray. -->
     <string name="tray_settings">Settings</string>
     <!-- Translators: Label for quit metrolist in the desktop system tray. -->
@@ -4901,6 +4915,8 @@
     <string name="lyrics_share_scroll_options">Scroll below the preview to customize your image.</string>
     <string name="connected_devices">Connected devices</string>
     <string name="available_devices">Available devices</string>
+    <!-- Translators: Row in the device picker that moves playback back to the device you are holding. -->
+    <string name="this_device">This device</string>
     <string name="no_device_connected">No device connected</string>
     <string name="no_other_devices_nearby">No other devices nearby</string>
     <string name="no_device_found">No device found</string>

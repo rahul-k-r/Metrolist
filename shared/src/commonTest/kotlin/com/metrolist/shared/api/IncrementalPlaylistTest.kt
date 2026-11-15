@@ -244,6 +244,43 @@ class IncrementalPlaylistTest {
             }
         }
 
+    /** A mix such as Replay Mix can answer a continuation with the same token again; that ends paging, it is not a failure. */
+    @Test
+    fun repeatedContinuationTokenEndsPagingInsteadOfFailing() =
+        runBlocking {
+            fun shelf(occurrence: Int) =
+                """{
+                  "contents":[{"musicResponsiveListItemRenderer":{
+                    "flexColumns":[{"musicResponsiveListItemFlexColumnRenderer":{"text":{"runs":[{"text":"Song"}]}}}],
+                    "playlistItemData":{"videoId":"song$occurrence","playlistSetVideoId":"occurrence-$occurrence"}
+                  }}],
+                  "continuations":[{"nextContinuationData":{"continuation":"same"}}]
+                }"""
+            val client =
+                HttpClient(
+                    MockEngine { request ->
+                        val body = Json.parseToJsonElement((request.body as TextContent).text).jsonObject
+                        val isContinuation = body["continuation"]?.jsonPrimitive?.contentOrNull != null
+                        val json =
+                            if (isContinuation) {
+                                """{"continuationContents":{"musicPlaylistShelfContinuation":${shelf(1)}}}"""
+                            } else {
+                                """{"contents":{"sectionListRenderer":{"contents":[{"musicPlaylistShelfRenderer":${shelf(0)}}]}}}"""
+                            }
+                        respond(json, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+                    },
+                ) { install(ContentNegotiation) { json() } }
+            try {
+                val repository = YouTubeRepository(InnerTube(client))
+                val first = repository.getPlaylistPageData("RDmix", applyContentFilters = false)
+                val complete = repository.completePlaylistPage(first, applyContentFilters = false)
+                assertEquals(listOf("occurrence-0", "occurrence-1"), complete.songs.map { it.playlistSetVideoId })
+                assertFalse(complete.hasMore)
+            } finally {
+                client.close()
+            }
+        }
+
     @Test
     fun playbackCompletesMoreThanOneHundredSongsBeforeSortingAndShuffling() =
         runBlocking {

@@ -1060,7 +1060,9 @@ class YouTubeRepository(
             sections.getOrPut(inheritedTitle) { mutableListOf() }.addAll(items)
         }
         val seen = page.seen + branch.token
-        check(parsed.continuationBranches.none { it.token in seen }) { "Playlist continuation cycle" }
+        // A mix (e.g. Replay Mix) can hand back a token we already followed. That means "no new page", not a failure:
+        // `pending` below already drops seen tokens, so paging still ends and the songs loaded so far are kept.
+        if (parsed.continuationBranches.any { it.token in seen }) Logger.w(TAG, "Playlist continuation repeated a token; stopping that branch")
         val pending =
             (
                 page.pending.drop(1) +

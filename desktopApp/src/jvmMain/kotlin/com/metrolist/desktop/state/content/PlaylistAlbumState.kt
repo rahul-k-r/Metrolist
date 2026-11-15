@@ -279,6 +279,7 @@ object PlaylistAlbumState {
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
+                    YtLogger.e("PlaylistAlbumState", "Playlist load failed type=${e::class.simpleName} message=${e.message}")
                     if (selectedPlaylistId == id) {
                         if (e is PlaylistNotFoundException) {
                             playlistData = emptyMap()

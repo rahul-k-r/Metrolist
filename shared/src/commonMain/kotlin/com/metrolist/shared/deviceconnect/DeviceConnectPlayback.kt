@@ -136,6 +136,13 @@ interface DeviceConnectPlaybackPort {
 
     suspend fun acknowledge(snapshot: DcPlaybackSnapshot) = Unit
 
+    /**
+     * A session was just opened around playback this device started on its own. Ports that report per-session
+     * state (desired playing, readiness) must seed it from [snapshot], or the first snapshot() after the session
+     * opens reports a paused, unready player and the target announces itself as paused.
+     */
+    suspend fun adoptLocalSession(snapshot: DcPlaybackSnapshot) = Unit
+
     fun setExternalReportingEnabled(
         enabled: Boolean,
         session: DcScrobbleSession?,

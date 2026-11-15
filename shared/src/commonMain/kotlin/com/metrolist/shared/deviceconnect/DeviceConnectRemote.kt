@@ -489,10 +489,12 @@ class DeviceConnectRemote(
             sendError(peerId, DcSyncError.INVALID_MESSAGE)
             return
         }
+        val accepted = if (peerId in clockPeers) snapshot else snapshot.copy(playback = snapshot.playback.copy(ready = true))
         if (!isFollowing) {
             if (isActive || transferBlocked() || port?.snapshot()?.playing != false) return
             if (snapshot.sessionId.isBlank()) return
-            beginControlling(peerId, snapshot.sessionId, null)
+            // Seed the controller with the real state: beginning from an empty one blanks the player for a round trip.
+            beginControlling(peerId, snapshot.sessionId, accepted)
         }
         if (peerId != state.value.targetId) return
         val current = canonical
@@ -500,7 +502,6 @@ class DeviceConnectRemote(
             if (snapshot.revision < current.revision || (snapshot.revision == current.revision && applyJob?.isActive == true)) return
         }
         clearPending()
-        val accepted = if (peerId in clockPeers) snapshot else snapshot.copy(playback = snapshot.playback.copy(ready = true))
         canonical = accepted
         controllerAnchorMs = monotonicClockMs()
         _state.value = _state.value.copy(sessionId = snapshot.sessionId, playbackAvailable = port != null, error = null)
@@ -595,6 +596,7 @@ class DeviceConnectRemote(
             return false
         }
         canonical = initial
+        port?.adoptLocalSession(initial)
         return true
     }
 

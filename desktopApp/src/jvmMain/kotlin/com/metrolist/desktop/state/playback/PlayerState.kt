@@ -625,6 +625,14 @@ object PlayerState {
                     syncSession.acknowledge(snapshot)
                 }
 
+            override suspend fun adoptLocalSession(snapshot: DcPlaybackSnapshot) =
+                withContext(Dispatchers.Main) {
+                    // Playback started locally never went through apply(), so the session would report paused and unready.
+                    syncSession.apply(snapshot)
+                    syncSession.setReady(snapshot.playback.ready)
+                    desiredPlayback.value = snapshot.playback.playing
+                }
+
             override fun setExternalReportingEnabled(
                 enabled: Boolean,
                 session: DcScrobbleSession?,

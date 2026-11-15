@@ -1285,6 +1285,19 @@ fun MetrolistApp(
                         }
                     }
 
+                    // collapse() animates to the bound as it was when launched; if the bounds resize in the same pass, the
+                    // sheet can settle dismissed with a song present, so re-check once layout has caught up.
+                    LaunchedEffect(hasMedia, miniPlayerCollapsedBound) {
+                        if (!shouldShowMiniPlayer) return@LaunchedEffect
+                        withFrameNanos { }
+                        withFrameNanos { }
+                        if (!playerBottomSheetState.isExpanded && playerBottomSheetState.targetAnchor != EXPANDED_ANCHOR &&
+                            !playerBottomSheetState.isCollapsed
+                        ) {
+                            playerBottomSheetState.collapse(spring(dampingRatio = 0.9f, stiffness = 700f))
+                        }
+                    }
+
                     LaunchedEffect(currentSong?.id) {
                         when {
                             !hasMedia -> {

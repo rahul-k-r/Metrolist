@@ -18,8 +18,11 @@ fun DesktopCastDialog(onDismiss: () -> Unit) {
     val deviceState by manager.state.collectAsState()
     val syncState by manager.remote.state.collectAsState()
     val scope = rememberCoroutineScope()
+    val volume by PlayerState.volumeState.collectAsState()
     LaunchedEffect(Unit) { manager.refreshPairingState() }
     CastDeviceDialog(
+        volume = volume,
+        onVolumeChange = PlayerState::setVolumeLevel,
         deviceState = deviceState,
         syncState = syncState,
         onEnableDeviceConnect = { scope.launch { manager.enable(Unit) } },

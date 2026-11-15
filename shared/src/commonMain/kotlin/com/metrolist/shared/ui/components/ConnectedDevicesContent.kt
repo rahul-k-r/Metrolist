@@ -28,6 +28,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -40,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -70,11 +72,13 @@ import com.metrolist.shared.generated.resources.no_other_devices_nearby
 import com.metrolist.shared.generated.resources.none
 import com.metrolist.shared.generated.resources.scrobble_connecting
 import com.metrolist.shared.generated.resources.this_device
+import com.metrolist.shared.generated.resources.volume
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.utils.toPolygonShape
 import com.metrolist.shared.ui.utils.verticalScrollWithDrag
 import org.jetbrains.compose.resources.stringResource
+import kotlin.time.TimeSource
 
 @Composable
 fun ConnectedDevicesContent(
@@ -92,6 +96,9 @@ fun ConnectedDevicesContent(
     permissionRequired: Boolean = false,
     onOpenIntegrations: (() -> Unit)? = null,
     closeButtonModifier: Modifier = Modifier,
+    /** Volume of the device being controlled; the slider shows only while another Metrolist device is playing. */
+    volume: Float? = null,
+    onVolumeChange: ((Float) -> Unit)? = null,
 ) {
     val activeCast = castState.device.takeIf { Settings.shared.castEnabled && castState.status != CastConnectionStatus.DISCONNECTED }
     val availableCast = devices.filter { Settings.shared.castEnabled && it.id != activeCast?.id }
@@ -174,6 +181,9 @@ fun ConnectedDevicesContent(
                             onClick = { deviceState?.localDeviceId?.let(onTransferTo) },
                         )
                     }
+                }
+                if (activePeer != null && volume != null && onVolumeChange != null) {
+                    RemoteVolumeSlider(volume, onVolumeChange)
                 }
             }
             DeviceSectionTitle(stringResource(Res.string.available_devices))
@@ -309,6 +319,58 @@ internal fun thisDeviceAction(
         peerActive -> ThisDeviceAction.PULL_BACK
         else -> null
     }
+
+@Composable
+private fun RemoteVolumeSlider(
+    volume: Float,
+    onVolumeChange: (Float) -> Unit,
+) {
+    // While dragging, show the thumb locally and send at most one value per interval, plus the final one on release;
+    // otherwise echoes from the other device pull the thumb back and a fast drag floods the connection.
+    var dragValue by remember { mutableStateOf<Float?>(null) }
+    val throttle = remember { SendThrottle(VOLUME_SEND_INTERVAL_MS) }
+    val description = stringResource(Res.string.volume)
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(MetrolistIcons.AutoMirrored.Filled.VolumeUp, contentDescription = null)
+        Slider(
+            value = dragValue ?: volume,
+            onValueChange = {
+                dragValue = it
+                if (throttle.tryAcquire()) onVolumeChange(it)
+            },
+            onValueChangeFinished = {
+                dragValue?.let(onVolumeChange)
+                dragValue = null
+            },
+            modifier = Modifier.weight(1f).semantics { contentDescription = description },
+        )
+    }
+}
+
+private const val VOLUME_SEND_INTERVAL_MS = 80L
+
+/** Lets one call through per [intervalMs] of monotonic time. */
+internal class SendThrottle(
+    private val intervalMs: Long,
+    private val nowMs: () -> Long = ::monotonicMillis,
+) {
+    private var last = Long.MIN_VALUE
+
+    fun tryAcquire(): Boolean {
+        val now = nowMs()
+        if (last != Long.MIN_VALUE && now - last < intervalMs) return false
+        last = now
+        return true
+    }
+}
+
+private val throttleOrigin = TimeSource.Monotonic.markNow()
+
+private fun monotonicMillis(): Long = throttleOrigin.elapsedNow().inWholeMilliseconds
 
 @Composable
 private fun DeviceSectionTitle(title: String) {

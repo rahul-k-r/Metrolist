@@ -43,6 +43,8 @@ fun CastDeviceDialog(
     onEnableDeviceConnect: (() -> Unit)? = null,
     onTransferTo: (String) -> Unit = {},
     dataSync: DeviceConnectDataSync? = null,
+    volume: Float? = null,
+    onVolumeChange: ((Float) -> Unit)? = null,
 ) {
     if (!Settings.shared.castEnabled) return
     DisposableEffect(Unit) {
@@ -69,6 +71,8 @@ fun CastDeviceDialog(
                 onEnableDeviceConnect = onEnableDeviceConnect,
                 onTransferTo = onTransferTo,
                 dataSync = dataSync,
+                volume = volume,
+                onVolumeChange = onVolumeChange,
                 modifier = Modifier.heightIn(max = 640.dp),
             )
         }

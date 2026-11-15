@@ -99,6 +99,8 @@ fun PlayerDeviceConnectSheet(
             onClose = onDismissRequest,
             permissionRequired = !permissionGranted && requiredPermission != null,
             onOpenIntegrations = onNavigateToIntegrations,
+            volume = playerConnection?.volume?.collectAsState()?.value,
+            onVolumeChange = playerConnection?.let { connection -> connection::setVolume },
         )
     }
 }

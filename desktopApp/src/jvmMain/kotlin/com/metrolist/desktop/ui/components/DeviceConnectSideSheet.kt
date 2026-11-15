@@ -180,6 +180,7 @@ private fun DeviceConnectPanelSurface(
     val syncState by manager.remote.state.collectAsState()
     val castState by PlayerState.castManager.state.collectAsState()
     val castDevices by PlayerState.castManager.devices.collectAsState()
+    val volume by PlayerState.volumeState.collectAsState()
     DisposableEffect(Settings.shared.castEnabled) {
         if (Settings.shared.castEnabled) PlayerState.startCastDiscovery()
         onDispose(PlayerState::stopCastDiscovery)
@@ -219,6 +220,8 @@ private fun DeviceConnectPanelSurface(
                 UiState.showIntegrationsSettings = true
             },
             closeButtonModifier = closeButtonModifier,
+            volume = volume,
+            onVolumeChange = PlayerState::setVolumeLevel,
         )
     }
 }

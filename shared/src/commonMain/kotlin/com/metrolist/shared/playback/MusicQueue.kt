@@ -1,6 +1,7 @@
 package com.metrolist.shared.playback
 
 import com.metrolist.shared.model.SongItem
+import com.metrolist.shared.settings.SkipMarks
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -81,6 +82,9 @@ class MusicQueue {
         publishItems(playableIndex.coerceAtMost(displayedEntries.lastIndex))
     }
 
+    /** Only the queue that backs real playback sets this; mirrored or controller queues must keep every entry. */
+    var leavesOutSkipMarked: Boolean = false
+
     fun setQueue(
         songs: List<SongItem>,
         startIndex: Int = 0,
@@ -88,12 +92,14 @@ class MusicQueue {
     ) {
         queueIdentity = Any()
         this.recommendationsSongsOnly = recommendationsSongsOnly
-        val playableSongs = songs.filterNot { it.isUnavailable }
+        val filtered = if (leavesOutSkipMarked) SkipMarks.filterForQueue(songs, startIndex) else null
+        val queued = filtered?.songs ?: songs
+        val playableSongs = queued.filterNot { it.isUnavailable }
         originalEntries = playableSongs.map { Entry(nextEntryKey++, it) }
         displayedEntries = originalEntries
         isShuffled = false
-        val selectedIndex = startIndex.coerceIn(-1, songs.lastIndex)
-        val playableIndex = if (selectedIndex < 0) -1 else songs.take(selectedIndex).count { !it.isUnavailable }
+        val selectedIndex = (filtered?.startIndex ?: startIndex).coerceIn(-1, queued.lastIndex)
+        val playableIndex = if (selectedIndex < 0) -1 else queued.take(selectedIndex).count { !it.isUnavailable }
         publishItems(playableIndex.coerceAtMost(playableSongs.lastIndex))
     }
 
@@ -166,7 +172,8 @@ class MusicQueue {
 
     fun appendPage(songs: List<SongItem>) {
         if (songs.isEmpty()) return
-        val entries = songs.filterNot { it.isUnavailable }.map { Entry(nextEntryKey++, it) }
+        val queued = if (leavesOutSkipMarked) SkipMarks.filterForQueue(songs).songs else songs
+        val entries = queued.filterNot { it.isUnavailable }.map { Entry(nextEntryKey++, it) }
         originalEntries = originalEntries + entries
         displayedEntries = displayedEntries + if (isShuffled) entries.shuffled() else entries
         publishItems()

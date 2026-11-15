@@ -2362,7 +2362,7 @@ class YouTubeRepository(
      * starts from a new visitor.
      */
     private suspend fun nextTube(): InnerTube {
-        if (!Settings.shared.isIncognito) {
+        if (!Settings.shared.hidesCurrentPlayback) {
             val stale = synchronized(anonymousNextLock) { anonymousNextTube.also { anonymousNextTube = null } }
             stale?.close()
             return innerTube

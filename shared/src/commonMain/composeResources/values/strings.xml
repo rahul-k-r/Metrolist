@@ -5479,4 +5479,20 @@
     <string name="incognito_menu_off">Off</string>
     <!-- Translators: Accessibility label for the small badge on the profile button while incognito mode is active. -->
     <string name="incognito_badge_description">Incognito mode is on</string>
+    <!-- Translators: Song menu item that makes every play of this song incognito. -->
+    <string name="incognito_mark_song">Always play incognito</string>
+    <!-- Translators: Song menu item that removes the always-incognito mark from this song. -->
+    <string name="incognito_unmark_song">Stop playing incognito</string>
+    <!-- Translators: Song menu item that makes every song by an artist incognito. %1$s is the artist name. -->
+    <string name="incognito_mark_artist">Always play %1$s incognito</string>
+    <!-- Translators: Song menu item that removes the always-incognito mark from an artist. %1$s is the artist name. -->
+    <string name="incognito_unmark_artist">Stop playing %1$s incognito</string>
+    <!-- Translators: Settings switch title. Marked songs are left out of queues the app builds. -->
+    <string name="skip_marking">Skip marked songs</string>
+    <!-- Translators: Settings switch description for skip marking. -->
+    <string name="skip_marking_desc">Songs you mark are left out of queues, radio and autoplay. Songs you pick yourself still play.</string>
+    <!-- Translators: Song menu item that marks a song to be skipped in automatic queues. -->
+    <string name="skip_mark_song">Skip in automatic queues</string>
+    <!-- Translators: Song menu item that removes the skip mark from a song. -->
+    <string name="skip_unmark_song">Stop skipping this song</string>
 </resources>

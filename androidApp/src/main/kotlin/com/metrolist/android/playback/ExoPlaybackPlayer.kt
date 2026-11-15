@@ -339,7 +339,7 @@ class ExoPlaybackPlayer(
     private val playbackReporters = linkedSetOf<YouTubePlaybackReporter>()
     private var playbackReporter =
         YouTubePlaybackReporter.create(scope, GlobalYouTubeRepository.instance).also(playbackReporters::add)
-    private val queue = MusicQueue()
+    private val queue = MusicQueue().apply { leavesOutSkipMarked = true }
     private val playbackAudioAttributes =
         AudioAttributes
             .Builder()

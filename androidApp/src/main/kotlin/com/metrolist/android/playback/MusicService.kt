@@ -120,6 +120,7 @@ import com.metrolist.shared.playback.sponsorblock.observeSponsorBlockSkipping
 import com.metrolist.shared.scrobble.ScrobbleManager
 import com.metrolist.shared.scrobble.ScrobbleSessions
 import com.metrolist.shared.settings.BlockedContent
+import com.metrolist.shared.settings.IncognitoPlayback
 import com.metrolist.shared.settings.MusicVideoQuality
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.settings.displayName
@@ -991,6 +992,7 @@ class MusicService :
 
         serviceScope.launch {
             player.currentSong.collectLatest { song ->
+                IncognitoPlayback.onCurrentSongChanged(song)
                 videoMode.onSongChanged(song)
                 if (Settings.shared.enableDiscordIntegration) syncDiscordState()
             }

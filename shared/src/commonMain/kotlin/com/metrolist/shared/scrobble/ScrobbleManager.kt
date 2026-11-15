@@ -102,7 +102,7 @@ class ScrobbleManager internal constructor(
             }
             val settings = Settings.shared
             scope.launch {
-                snapshotFlow { settings.isIncognito }.collect { if (it) incognitoTainted = true }
+                snapshotFlow { settings.isIncognitoFor(currentSong) }.collect { if (it) incognitoTainted = true }
             }
             scope.launch {
                 snapshotFlow {
@@ -256,7 +256,7 @@ class ScrobbleManager internal constructor(
         totalPlayedMs = 0L
         lastUpdateMs = monotonicClock()
         isScrobbled = false
-        incognitoTainted = Settings.shared.isIncognito
+        incognitoTainted = Settings.shared.isIncognitoFor(song)
         hasInheritedScrobblePending = false
         isScrobbleInFlight = false
         songStartedAtTimestamp = clock() / 1000
@@ -311,7 +311,7 @@ class ScrobbleManager internal constructor(
 
     private fun updatePlayedTime() {
         val previous = lastUpdateMs ?: return
-        if (Settings.shared.isIncognito) incognitoTainted = true
+        if (Settings.shared.isIncognitoFor(currentSong)) incognitoTainted = true
         val now = monotonicClock()
         totalPlayedMs += (now - previous).coerceAtLeast(0L)
         lastUpdateMs = now
@@ -592,7 +592,7 @@ class ScrobbleManager internal constructor(
 
     // Incognito yields no accounts, so now-playing, the ticker and submission all stand down.
     private fun currentAccounts(nowPlaying: Boolean = false): List<ScrobbleAccount> =
-        if (Settings.shared.isIncognito) {
+        if (Settings.shared.isIncognitoFor(currentSong)) {
             emptyList()
         } else {
             accountsOverride?.invoke(nowPlaying) ?: buildList {

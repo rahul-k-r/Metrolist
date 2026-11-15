@@ -281,6 +281,12 @@ internal fun SettingsUiRegistryBuilder.registerPlaybackSettings(host: SharedSett
         }
         group("queue", stringResource(Res.string.queue)) {
             switch(
+                id = "skipMarking",
+                title = stringResource(Res.string.skip_marking),
+                description = stringResource(Res.string.skip_marking_desc),
+                checked = settings.skipMarkingEnabled,
+            ) { settings.skipMarkingEnabled = it }
+            switch(
                 id = "legacyShuffle",
                 title = stringResource(Res.string.legacy_shuffle),
                 description = stringResource(Res.string.legacy_shuffle_desc),

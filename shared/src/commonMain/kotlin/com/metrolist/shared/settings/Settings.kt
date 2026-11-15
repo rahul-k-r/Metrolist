@@ -181,6 +181,7 @@ import com.metrolist.shared.model.CollectionSort
 import com.metrolist.shared.model.LyricsProvider
 import com.metrolist.shared.model.PlaylistPickerSort
 import com.metrolist.shared.model.PlaylistSongSort
+import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.model.SortDirection
 import com.metrolist.shared.playback.SleepTimerDefaults
 import com.metrolist.shared.youtube.playback.PlaybackNetworkState
@@ -535,8 +536,18 @@ class Settings(
     var incognitoResetOnRestart by preference(IncognitoPolicy.RESET_ON_RESTART_KEY, true)
     var incognitoActive by preference(IncognitoPolicy.ACTIVE_KEY, false)
 
+    var incognitoMarksJson by preference("")
+    var skipMarkingEnabled by preference(false)
+    var skipMarksJson by preference("")
+
     val isIncognito: Boolean get() = IncognitoPolicy.isIncognito(incognitoModeEnabled, incognitoActive)
-    val listenHistoryPaused: Boolean get() = pauseListenHistory || isIncognito
+
+    /** Global incognito, or the song itself carries an incognito mark (marks only count while the master switch is on). */
+    fun isIncognitoFor(song: SongItem?): Boolean = isIncognito || (incognitoModeEnabled && song != null && IncognitoMarks.matches(song))
+
+    /** Same, for the song playing now. */
+    val hidesCurrentPlayback: Boolean get() = isIncognito || IncognitoPlayback.hidesCurrent(this)
+    val listenHistoryPaused: Boolean get() = pauseListenHistory || hidesCurrentPlayback
     val searchHistoryPaused: Boolean get() = pauseSearchHistory || isIncognito
     var hideRecentSearches by preference(HideRecentSearchesKey, false)
     var searchHistory by preference("")

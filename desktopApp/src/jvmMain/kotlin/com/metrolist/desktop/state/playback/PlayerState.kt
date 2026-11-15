@@ -105,7 +105,9 @@ import com.metrolist.shared.playback.songsShareAlbum
 import com.metrolist.shared.playback.sponsorblock.observeSponsorBlockSkipping
 import com.metrolist.shared.scrobble.ScrobbleManager
 import com.metrolist.shared.settings.BlockedContent
+import com.metrolist.shared.settings.IncognitoPlayback
 import com.metrolist.shared.settings.Settings
+import com.metrolist.shared.settings.SkipMarks
 import com.metrolist.shared.state.GlobalYouTube
 import com.metrolist.shared.state.GlobalYouTubeRepository
 import com.metrolist.shared.state.PodcastLibrary
@@ -705,7 +707,7 @@ object PlayerState {
         }
 
     val player = MusicPlayer(playbackCacheCapture = SongCacheManager::capturePlayback)
-    val queue = MusicQueue()
+    val queue = MusicQueue().apply { leavesOutSkipMarked = true }
     internal val playbackConnected = MutableStateFlow(true)
     internal val desiredPlayback = MutableStateFlow(false)
     var currentTrack: SongItem? by mutableStateOf(null)
@@ -1843,6 +1845,7 @@ object PlayerState {
 
         scope.launch {
             player.currentSong.collectLatest { song ->
+                IncognitoPlayback.onCurrentSongChanged(song)
                 coroutineScope {
                     val previousSongId = history.currentSongId
                     val previousTrack = currentTrack
@@ -3664,7 +3667,7 @@ object PlayerState {
         initialRecommendationsGeneration = null
         val blocked = BlockedContent.snapshot()
         val existing = queue.items.value.mapTo(mutableSetOf()) { it.id }
-        val additions = songs.filter { !it.isUnavailable && !blocked.isBlocked(it) && existing.add(it.id) }
+        val additions = SkipMarks.filterForQueue(songs).songs.filter { !it.isUnavailable && !blocked.isBlocked(it) && existing.add(it.id) }
         if (additions.isNotEmpty()) {
             queue.addToQueue(additions)
             recommendationHistory.remember(additions)

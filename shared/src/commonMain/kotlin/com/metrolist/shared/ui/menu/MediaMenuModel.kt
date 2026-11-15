@@ -215,6 +215,7 @@ fun songMediaMenuModel(
     val editLabel = stringResource(Res.string.edit)
     val editDesc = stringResource(Res.string.edit_song_description)
     val artistAction = artistNavigationMenuAction(song.artists, onGoToArtist, onDismiss)
+    val itemMarkActions = if (isGuest) emptyList() else itemMarkMenuActions(song, onDismiss)
     val download =
         downloadAction(downloadState, downloadProgress, false, onDismiss, onDownload)?.let {
             it.copy(enabled = it.enabled && (!song.isUnavailable || downloadState == MediaDownloadState.DOWNLOADED))
@@ -298,17 +299,19 @@ fun songMediaMenuModel(
                     hideAction(onDismiss, onHideFromLibrary),
                     dislikeMenuAction(isDisliked, onDismiss, onDislike),
                     blockArtistMenuAction(onDismiss, onBlockArtist),
-                    download.takeUnless { isPlayerMenu },
-                    deleteUploadAction,
-                    onEdit?.let {
-                        PlayerMenuAction(
-                            MetrolistIcons.Outlined.Edit,
-                            editLabel,
-                            editDesc,
-                            onClick = it,
-                        )
-                    },
-                ),
+                ) + itemMarkActions +
+                    listOfNotNull(
+                        download.takeUnless { isPlayerMenu },
+                        deleteUploadAction,
+                        onEdit?.let {
+                            PlayerMenuAction(
+                                MetrolistIcons.Outlined.Edit,
+                                editLabel,
+                                editDesc,
+                                onClick = it,
+                            )
+                        },
+                    ),
             navigation =
                 buildList {
                     artistAction?.let(::add)

@@ -87,6 +87,7 @@ import com.metrolist.desktop.ui.components.DeviceConnectSideSheet
 import com.metrolist.desktop.ui.components.FullscreenPlayerView
 import com.metrolist.desktop.ui.components.LyricsDrawer
 import com.metrolist.desktop.ui.components.PersistentPlayerDrawer
+import com.metrolist.desktop.ui.components.SidebarPlaylists
 import com.metrolist.desktop.ui.components.StandardBottomPlayer
 import com.metrolist.desktop.ui.components.TopBarWithPlayer
 import com.metrolist.desktop.ui.components.VideoMiniViewer
@@ -321,6 +322,7 @@ private fun DesktopNavigationScaffold(
                 }
             }
         },
+        navigationExtras = { expanded -> SidebarPlaylists(expanded && !LibraryState.isEditingSidebar) },
         isEditing = LibraryState.isEditingSidebar,
         onReorderFinished = { order ->
             LibraryState.saveSidebarNavItems(reorderSidebarNavItems(LibraryState.sidebarNavItems, order))

@@ -187,6 +187,7 @@ import com.metrolist.shared.model.previewThumbnailUrl
 import com.metrolist.shared.playlistimport.PlaylistImportProgressIndicator
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.settings.displayName
+import com.metrolist.shared.state.GlobalYouTubeRepository
 import com.metrolist.shared.ui.components.IncognitoBadge
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.navigation.navigationPopupSource
@@ -246,12 +247,6 @@ fun WindowScope.CustomTitleBar(
                 if (isMacOS) {
                     Spacer(Modifier.width(12.dp))
                 }
-                AccountMenuButton(
-                    showAccountMenu = showAccountPanel,
-                    onToggleAccountMenu = { showAccountPanel = !showAccountPanel },
-                    onDismissAccountMenu = { showAccountPanel = false },
-                    colorScheme = colorScheme,
-                )
                 navItems()
                 DevtoolsButton(colorScheme)
             }
@@ -287,6 +282,13 @@ fun WindowScope.CustomTitleBar(
             ) {
                 PlaylistImportProgressIndicator()
                 ExpressiveDownloadIndicatorPill(colorScheme)
+                AccountMenuButton(
+                    showAccountMenu = showAccountPanel,
+                    onToggleAccountMenu = { showAccountPanel = !showAccountPanel },
+                    onDismissAccountMenu = { showAccountPanel = false },
+                    colorScheme = colorScheme,
+                    showName = !isWindowTight,
+                )
             }
         }
     }
@@ -371,12 +373,6 @@ fun WindowScope.TopBarWithPlayer(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                AccountMenuButton(
-                    showAccountMenu = showAccountPanel,
-                    onToggleAccountMenu = { showAccountPanel = !showAccountPanel },
-                    onDismissAccountMenu = { showAccountPanel = false },
-                    colorScheme = colorScheme,
-                )
                 navItems()
                 DevtoolsButton(colorScheme)
             }
@@ -721,6 +717,13 @@ fun WindowScope.TopBarWithPlayer(
                 Spacer(Modifier.width(4.dp))
                 PlaylistImportProgressIndicator()
                 ExpressiveDownloadIndicatorPill(colorScheme)
+                AccountMenuButton(
+                    showAccountMenu = showAccountPanel,
+                    onToggleAccountMenu = { showAccountPanel = !showAccountPanel },
+                    onDismissAccountMenu = { showAccountPanel = false },
+                    colorScheme = colorScheme,
+                    showName = !isWindowTight,
+                )
             }
         }
     }
@@ -790,12 +793,25 @@ private fun AccountMenuButton(
     onToggleAccountMenu: () -> Unit,
     onDismissAccountMenu: () -> Unit,
     colorScheme: ColorScheme,
+    showName: Boolean = false,
 ) {
     Box {
-        IconButton(
-            onClick = onToggleAccountMenu,
-            modifier = Modifier.size(40.dp).navigationPopupSource(),
-            shapes = IconButtonDefaults.shapes(),
+        val accountName =
+            if (showName && AuthState.isSignedIn) {
+                (GlobalYouTubeRepository.instance.lastAccountInfo?.name ?: Settings.shared.accountName).takeIf { it.isNotBlank() }
+            } else {
+                null
+            }
+        Row(
+            modifier =
+                Modifier
+                    .height(40.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .clickable(onClick = onToggleAccountMenu)
+                    .navigationPopupSource()
+                    .padding(horizontal = if (accountName != null) 8.dp else 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             val profilePicUrl = AuthState.profilePicUrl
             if (AuthState.isSignedIn && !profilePicUrl.isNullOrBlank()) {
@@ -809,6 +825,16 @@ private fun AccountMenuButton(
                     contentDescription = stringResource(Res.string.cd_account_menu),
                     modifier = Modifier.size(24.dp),
                     tint = if (showAccountMenu) colorScheme.primary else colorScheme.onSurfaceVariant,
+                )
+            }
+            if (accountName != null) {
+                Text(
+                    text = accountName,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 140.dp),
                 )
             }
         }

@@ -299,6 +299,7 @@ fun <T> AdaptiveNavigationScaffold(
     itemModifier: @Composable (T) -> Modifier = { Modifier },
     navigationHeader: @Composable (NavigationSuiteType) -> Unit = {},
     navigationFooter: (@Composable (isExpanded: Boolean) -> Unit)? = null,
+    navigationExtras: (@Composable (isExpanded: Boolean) -> Unit)? = null,
     isSidebarExpanded: Boolean = true,
     isSidebarExpandable: Boolean = true,
     onToggleSidebar: () -> Unit = {},
@@ -377,6 +378,7 @@ fun <T> AdaptiveNavigationScaffold(
                     onSelect = onSelect,
                     navigationHeader = navigationHeader,
                     navigationFooter = navigationFooter,
+                    navigationExtras = navigationExtras,
                     isSidebarExpanded = isSidebarExpanded,
                     isSidebarExpandable = isSidebarExpandable,
                     onToggleSidebar = onToggleSidebar,
@@ -440,6 +442,7 @@ private fun <T> DesktopWideNavigationRail(
     onSelect: (T) -> Unit,
     navigationHeader: @Composable (NavigationSuiteType) -> Unit,
     navigationFooter: (@Composable (isExpanded: Boolean) -> Unit)?,
+    navigationExtras: (@Composable (isExpanded: Boolean) -> Unit)?,
     isSidebarExpanded: Boolean,
     isSidebarExpandable: Boolean,
     onToggleSidebar: () -> Unit,
@@ -641,6 +644,7 @@ private fun <T> DesktopWideNavigationRail(
                                         )
                                     }
                                 }
+                                navigationExtras?.invoke(isSidebarExpanded)
                             }
                         }
                     }

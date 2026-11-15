@@ -144,7 +144,7 @@ java {
 }
 
 val sentryAuthToken = providers.environmentVariable("SENTRY_AUTH_TOKEN").filter(String::isNotBlank)
-val appVersion = providers.gradleProperty("appVersion").get()
+val appVersion = gradle.extra["appVersion"] as String // fork: see settings.gradle.kts
 val bundledLanguageTags =
     rootProject
         .file("shared/src/commonMain/composeResources")
@@ -204,7 +204,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.metrolist.music"
+        applicationId = "com.rahulkr.metrolist" // fork: distinct from upstream so both can be installed
         minSdk = 24
         targetSdk = 37
         versionCode = 154
@@ -347,6 +347,13 @@ val generateAndroidStrings =
 androidComponents {
     onVariants { variant ->
         variant.sources.res?.addGeneratedSourceDirectory(generateAndroidStrings, GenerateAndroidStringsTask::outputDirectory)
+        // Fork: versionCode = upstream code * 1_000_000 + custom MAJOR*10000+MINOR*100+PATCH, so it rises on both kinds of release.
+        Regex("""\+(\d+)\.(\d+)\.(\d+)$""").find(appVersion)?.destructured?.let { (major, minor, patch) ->
+            val upstreamCode = variant.outputs.single().versionCode.get() ?: return@let
+            variant.outputs.single().versionCode.set(
+                upstreamCode * 1_000_000 + major.toInt() * 10_000 + minor.toInt() * 100 + patch.toInt(),
+            )
+        }
     }
 }
 

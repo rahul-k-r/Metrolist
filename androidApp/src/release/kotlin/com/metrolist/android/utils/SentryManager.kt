@@ -42,7 +42,7 @@ object SentryManager {
         if (Sentry.isEnabled()) return
 
         SentryAndroid.init(application) { options ->
-            options.dsn = "https://fe4474514a54a507252b26c60e229016@o4511744603193344.ingest.de.sentry.io/4511744608436304"
+            options.dsn = "" // Fork: no Sentry project yet; an empty DSN disables the SDK.
             options.release = androidSentryRelease(BuildConfig.APP_VERSION)
             BuildConfig.SOURCE_REVISION.takeIf(String::isNotBlank)?.let { options.setTag("source_revision", it) }
             options.sampleRate = 1.0

@@ -3,7 +3,7 @@ import org.gradle.api.tasks.bundling.Zip
 import java.io.File
 import java.nio.file.Files
 
-val appVersion = providers.gradleProperty("appVersion").get()
+val appVersion = gradle.extra["appVersion"] as String // fork: see settings.gradle.kts
 
 tasks.register("createAppImageLocal") {
     group = "distribution"

@@ -5,6 +5,8 @@ data class ReleaseVersion(
     val minor: Int,
     val patch: Int,
     val prerelease: List<String>,
+    // Deliberately outside SemVer: build metadata orders fork releases that share an upstream version.
+    val build: List<String> = emptyList(),
 ) : Comparable<ReleaseVersion> {
     override fun compareTo(other: ReleaseVersion): Int {
         major.compareTo(other.major).takeIf { it != 0 }?.let { return it }
@@ -12,17 +14,25 @@ data class ReleaseVersion(
         patch.compareTo(other.patch).takeIf { it != 0 }?.let { return it }
         if (prerelease.isEmpty() && other.prerelease.isNotEmpty()) return 1
         if (prerelease.isNotEmpty() && other.prerelease.isEmpty()) return -1
-        repeat(maxOf(prerelease.size, other.prerelease.size)) { index ->
-            val left = prerelease.getOrNull(index) ?: return -1
-            val right = other.prerelease.getOrNull(index) ?: return 1
-            val leftNumber = left.toIntOrNull()
-            val rightNumber = right.toIntOrNull()
+        comparePrecedence(prerelease, other.prerelease).takeIf { it != 0 }?.let { return it }
+        return comparePrecedence(build, other.build)
+    }
+
+    private fun comparePrecedence(
+        left: List<String>,
+        right: List<String>,
+    ): Int {
+        repeat(maxOf(left.size, right.size)) { index ->
+            val l = left.getOrNull(index) ?: return -1
+            val r = right.getOrNull(index) ?: return 1
+            val leftNumber = l.toIntOrNull()
+            val rightNumber = r.toIntOrNull()
             val comparison =
                 when {
                     leftNumber != null && rightNumber != null -> leftNumber.compareTo(rightNumber)
                     leftNumber != null -> -1
                     rightNumber != null -> 1
-                    else -> left.compareTo(right)
+                    else -> l.compareTo(r)
                 }
             if (comparison != 0) return comparison
         }
@@ -30,7 +40,7 @@ data class ReleaseVersion(
     }
 
     companion object {
-        private val pattern = Regex("^v?(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-([0-9A-Za-z.-]+))?(?:\\+[0-9A-Za-z.-]+)?$")
+        private val pattern = Regex("^v?(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-([0-9A-Za-z.-]+))?(?:\\+([0-9A-Za-z.-]+))?$")
 
         fun parse(value: String): ReleaseVersion? {
             val match = pattern.matchEntire(value) ?: return null
@@ -44,6 +54,7 @@ data class ReleaseVersion(
                         ?.replace(Regex("(?i)^(alpha|beta|rc)([0-9]+)(?=\\.|$)"), "$1.$2")
                         ?.split('.')
                         .orEmpty(),
+                build = match.groupValues[5].takeIf(String::isNotEmpty)?.split('.').orEmpty(),
             )
         }
     }

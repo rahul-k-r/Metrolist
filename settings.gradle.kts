@@ -51,6 +51,17 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Metrolist"
+
+// Fork: the shipped version is "<upstream appVersion>+<fork/custom-version.txt>", exposed to build scripts as
+// gradle.extra["appVersion"]. gradle.properties stays upstream's so syncs never conflict on it, and the custom
+// part survives every upstream bump. -PappVersion=... still wins (used as the upstream part).
+run {
+    val customVersion = file("fork/custom-version.txt").takeIf { it.isFile }?.readText()?.trim().orEmpty()
+    val upstream =
+        gradle.startParameter.projectProperties["appVersion"]
+            ?: file("gradle.properties").readLines().first { it.startsWith("appVersion=") }.substringAfter('=').trim()
+    gradle.extra["appVersion"] = if (customVersion.isNotEmpty() && '+' !in upstream) "$upstream+$customVersion" else upstream
+}
 if (useLocalInnerTubeX) {
     includeBuild("../innertubex") {
         dependencySubstitution {

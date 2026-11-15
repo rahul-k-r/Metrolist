@@ -58,7 +58,7 @@ import org.jetbrains.compose.resources.stringResource
 
 @Composable
 internal fun IosOnboarding(onComplete: (sendCrashReports: Boolean, login: Boolean, restore: Boolean) -> Unit) {
-    val pages = listOf(OnboardingPage.WELCOME, OnboardingPage.CRASH_REPORTS, OnboardingPage.FINISH)
+    val pages = listOf(OnboardingPage.WELCOME, OnboardingPage.FINISH)
     var pageIndex by rememberSaveable { mutableIntStateOf(0) }
     var consent by rememberSaveable { mutableStateOf(false) }
     val page = pages[pageIndex]

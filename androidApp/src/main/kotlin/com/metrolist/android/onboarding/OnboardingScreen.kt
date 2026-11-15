@@ -87,7 +87,7 @@ internal fun OnboardingScreen(
                 add(OnboardingPage.WELCOME)
                 if (hasLegacyInstallation && !libraryStartedFresh) add(OnboardingPage.MIGRATION)
                 if (hasLegacyInstallation && !libraryStartedFresh) add(OnboardingPage.MIGRATION_COMPLETE)
-                add(OnboardingPage.CRASH_REPORTS)
+                // Fork: no crash-report (Sentry) page; nothing is configured to receive reports.
                 add(OnboardingPage.NOTIFICATIONS)
                 add(OnboardingPage.LANGUAGE_LYRICS)
                 add(OnboardingPage.PLAYBACK)

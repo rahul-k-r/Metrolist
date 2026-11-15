@@ -92,7 +92,7 @@ configurations.matching { it.name.startsWith("jvm") }.configureEach {
 }
 
 group = "com.metrolist"
-val appVersion = providers.gradleProperty("appVersion").get()
+val appVersion = gradle.extra["appVersion"] as String // fork: see settings.gradle.kts
 version = appVersion
 
 val desktopMemoryJvmArgs =

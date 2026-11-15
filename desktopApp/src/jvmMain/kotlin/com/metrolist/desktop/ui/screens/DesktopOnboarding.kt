@@ -113,7 +113,7 @@ fun DesktopOnboarding(onComplete: (sendCrashReports: Boolean, openLogin: Boolean
         remember {
             listOf(
                 OnboardingPage.WELCOME,
-                OnboardingPage.CRASH_REPORTS,
+                // Fork: no crash-report (Sentry) page; nothing is configured to receive reports.
                 OnboardingPage.LANGUAGE_LYRICS,
                 OnboardingPage.PLAYBACK,
                 OnboardingPage.FINISH,

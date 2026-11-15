@@ -370,7 +370,7 @@ tasks.matching { it.name == "lintAnalyzeAndroidHostTest" || it.name == "generate
     dependsOn(generateRoomMigrationTestSchemas, generateOpusTestFixture)
 }
 
-val appVersion = providers.gradleProperty("appVersion").get()
+val appVersion = gradle.extra["appVersion"] as String // fork: see settings.gradle.kts
 val innerTubeXVersion = providers.gradleProperty("innerTubeXVersion").get()
 val bundledLanguageTags =
     file("src/commonMain/composeResources")

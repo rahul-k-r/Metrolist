@@ -4,6 +4,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.metrolist.shared.model.SongItem
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlin.concurrent.Volatile
@@ -78,18 +80,21 @@ open class MarkRegistry(
     @Volatile
     private var cached: Parsed? = null
 
-    @Synchronized
-    private fun parsed(): Parsed {
-        val source = read()
-        cached?.takeIf { it.source == source }?.let { return it }
-        val items =
-            try {
-                json.decodeFromString<List<MarkedItem>>(source.ifBlank { "[]" })
-            } catch (_: Exception) {
-                emptyList()
-            }
-        return Parsed(source, items).also { cached = it }
-    }
+    // Reentrant, and common to every target (@Synchronized is JVM-only and breaks the iOS build).
+    private val lock = SynchronizedObject()
+
+    private fun parsed(): Parsed =
+        synchronized(lock) {
+            val source = read()
+            cached?.takeIf { it.source == source }?.let { return@synchronized it }
+            val items =
+                try {
+                    json.decodeFromString<List<MarkedItem>>(source.ifBlank { "[]" })
+                } catch (_: Exception) {
+                    emptyList()
+                }
+            Parsed(source, items).also { cached = it }
+        }
 
     fun items(): List<MarkedItem> = parsed().items
 
@@ -97,14 +102,14 @@ open class MarkRegistry(
     fun entries(): List<MarkedItem> = parsed().all
 
     /** Folds another device's entries in; returns true when anything here changed. */
-    @Synchronized
-    fun mergeFrom(remote: List<MarkedItem>): Boolean {
-        val current = entries()
-        val merged = mergeMarks(current, remote, now())
-        if (merged == current) return false
-        save(merged)
-        return true
-    }
+    fun mergeFrom(remote: List<MarkedItem>): Boolean =
+        synchronized(lock) {
+            val current = entries()
+            val merged = mergeMarks(current, remote, now())
+            if (merged == current) return@synchronized false
+            save(merged)
+            true
+        }
 
     fun isMarked(
         kind: MarkKind,
@@ -122,23 +127,25 @@ open class MarkRegistry(
         return markArtists && song.artists.any { artist -> artist.id?.let { it in parsed.artistIds } == true }
     }
 
-    @Synchronized
     fun mark(item: MarkedItem) {
         if (item.id.isBlank()) return
-        val stamped = item.copy(updatedAt = now(), removed = false)
-        save(listOf(stamped) + entries().filterNot { it.kind == item.kind && it.id == item.id })
+        synchronized(lock) {
+            val stamped = item.copy(updatedAt = now(), removed = false)
+            save(listOf(stamped) + entries().filterNot { it.kind == item.kind && it.id == item.id })
+        }
     }
 
-    @Synchronized
     fun unmark(
         kind: MarkKind,
         id: String,
     ) {
-        val existing = entries().firstOrNull { it.kind == kind && it.id == id && !it.removed } ?: return
-        save(
-            listOf(existing.copy(updatedAt = now(), removed = true)) +
-                entries().filterNot { it.kind == kind && it.id == id },
-        )
+        synchronized(lock) {
+            val existing = entries().firstOrNull { it.kind == kind && it.id == id && !it.removed } ?: return
+            save(
+                listOf(existing.copy(updatedAt = now(), removed = true)) +
+                    entries().filterNot { it.kind == kind && it.id == id },
+            )
+        }
     }
 
     fun toggle(item: MarkedItem) {

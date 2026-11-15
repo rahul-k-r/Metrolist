@@ -59,6 +59,8 @@ jobs:
       upload-artifact: true
       artifact-name: release-android
       require-signing: true
+      # The collect step compares the APK's versionName with this, and gradle.properties only holds the upstream part.
+      app-version: ${{ needs.prepare.outputs.version }}
     secrets: inherit
 
   windows:

@@ -1038,15 +1038,20 @@ class Settings(
     /** Settings that make sense on another device: no credentials, device ids, window/tray prefs or marks. */
     fun exportSyncSettings(): PortableSettings = exportSettings(syncExcludedKeys)
 
+    /** Drops excluded and unknown keys, so a peer cannot touch a setting this device never syncs. */
+    private fun syncableOnly(snapshot: PortableSettings): PortableSettings =
+        snapshot.copy(entries = snapshot.entries.filter { it.key !in syncExcludedKeys && it.key in settingTypes })
+
     fun importSyncSettings(snapshot: PortableSettings) {
-        validatePortableSettings(snapshot)
-        importSettings(snapshot, syncExcludedKeys, emptySet())
+        val filtered = syncableOnly(snapshot)
+        validatePortableSettings(filtered)
+        importSettings(filtered, syncExcludedKeys, emptySet())
     }
 
     /** How many values in [snapshot] would change this device's settings. */
     fun syncDifferenceCount(snapshot: PortableSettings): Int {
         val current = exportSyncSettings().entries.associateBy { it.key }
-        return snapshot.entries.count { it.key !in syncExcludedKeys && current[it.key]?.value != it.value }
+        return syncableOnly(snapshot).entries.count { current[it.key]?.value != it.value }
     }
 
     fun flush() {
@@ -1368,6 +1373,33 @@ class Settings(
                     "desktopTrayClickPlayPause",
                     "incognitoMarksJson",
                     "skipMarksJson",
+                    // Endpoints: a synced URL could redirect locally stored API keys/tokens to another host.
+                    "lyricsAiBaseUrl",
+                    "githubNTransformConfigUrl",
+                    "playerConfigRemoteSourceUrl",
+                    "playerConfigRemoteJson",
+                    "playerConfigRemoteEtag",
+                    "listenTogetherServerUrl",
+                    "listenTogetherCustomServers",
+                    "listenTogetherServerMetadata",
+                    "discordButton1Url",
+                    "discordButton2Url",
+                    // Per-device identity and platform/window state.
+                    "deviceConnectDeviceName",
+                    "deviceConnectDefaultDeviceId",
+                    "systemInDarkTheme",
+                    "enableSystemWindowFrame",
+                    "waylandDefaultFrameApplied",
+                    "disableWaylandScaleFix",
+                    "macDefaultFrameApplied",
+                    // Histories and pending work queues.
+                    "pendingScrobblesJson",
+                    "corruptPendingScrobblesJson",
+                    "searchHistory",
+                    "recentPlayedSearchSongsJson",
+                    "queuedYouTubeHistoryJson",
+                    "downloadQueueJson",
+                    "pendingSongVotesJson",
                 )
         private const val PORTABLE_SETTINGS_VERSION = 1
         const val DEFAULT_LISTEN_TOGETHER_SERVER_URL = "wss://metroserverx.meowery.eu/ws"

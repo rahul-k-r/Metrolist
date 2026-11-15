@@ -5,6 +5,7 @@ import com.metrolist.shared.settings.MarkRegistry
 import com.metrolist.shared.settings.MarkedItem
 import com.metrolist.shared.settings.PortableSettings
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -75,6 +76,9 @@ class DeviceConnectDataSync(
     private val importSettings: (PortableSettings) -> Unit,
     private val settingsDifferences: (PortableSettings) -> Int,
     private val marksVersion: () -> Pair<String, String>,
+    /** A peer can request our settings without a prompt here, so this is the place to refuse (e.g. incognito). */
+    private val allowSettingsRequest: () -> Boolean = { true },
+    private val pullTimeoutMs: Long = 30_000L,
 ) {
     private val peers = MutableStateFlow<Set<String>>(emptySet())
     private val pendingPulls = MutableStateFlow<Set<String>>(emptySet())
@@ -127,6 +131,7 @@ class DeviceConnectDataSync(
             }
 
             DcDataKinds.SETTINGS_REQUEST -> {
+                if (!allowSettingsRequest()) return
                 send(from, DcDataMessage(DcDataKinds.SETTINGS_SNAPSHOT, settings = exportSettings()))
             }
 
@@ -151,7 +156,11 @@ class DeviceConnectDataSync(
             if (!send(deviceId, DcDataMessage(DcDataKinds.SETTINGS_REQUEST))) {
                 pendingPulls.update { it - deviceId }
                 _status.value = DataSyncStatus.Failed(deviceId)
+                return@launch
             }
+            // A snapshot arriving long after the request is no longer the one the user asked for.
+            delay(pullTimeoutMs)
+            pendingPulls.update { it - deviceId }
         }
     }
 

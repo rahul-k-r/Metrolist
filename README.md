@@ -298,6 +298,4 @@ Metrolist uses these projects and services.
 
 **Developed by [the Metrolist development team](https://github.com/MetrolistGroup)**
 
-**This project stands with Palestine 🇵🇸**
-
 </div>

@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import com.metrolist.shared.model.SongItem
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlin.concurrent.Volatile
 import kotlin.time.Clock
 
 enum class MarkKind { SONG, ARTIST }
@@ -24,18 +25,37 @@ data class MarkedItem(
     val removed: Boolean = false,
 )
 
-/** Newest change per item wins; on a tie the local entry is kept. */
+internal const val MAX_REMOTE_MARKS = 5000
+private const val MAX_FUTURE_SKEW_MS = 5L * 60 * 1000
+private const val MAX_MARK_FIELD_LENGTH = 2048
+
+/**
+ * Newest change per item wins. A tie keeps the tombstone, so both devices converge on the same entry.
+ * Remote entries are untrusted: blank ids, oversized fields and extra entries are dropped, and a timestamp
+ * far past [now] is clamped so a peer cannot pin an item forever.
+ */
 fun mergeMarks(
     local: List<MarkedItem>,
     remote: List<MarkedItem>,
+    now: Long = Clock.System.now().toEpochMilliseconds(),
 ): List<MarkedItem> {
     val merged = LinkedHashMap<Pair<MarkKind, String>, MarkedItem>()
     local.forEach { merged[it.kind to it.id] = it }
-    remote.forEach { incoming ->
-        val key = incoming.kind to incoming.id
-        val existing = merged[key]
-        if (existing == null || incoming.updatedAt > existing.updatedAt) merged[key] = incoming
-    }
+    remote
+        .asSequence()
+        .filter { it.id.isNotBlank() && it.id.length <= MAX_MARK_FIELD_LENGTH && it.title.length <= MAX_MARK_FIELD_LENGTH }
+        .filter { (it.thumbnail?.length ?: 0) <= MAX_MARK_FIELD_LENGTH }
+        .take(MAX_REMOTE_MARKS)
+        .map { it.copy(updatedAt = it.updatedAt.coerceIn(0L, now + MAX_FUTURE_SKEW_MS)) }
+        .forEach { incoming ->
+            val key = incoming.kind to incoming.id
+            val existing = merged[key]
+            val wins =
+                existing == null ||
+                    incoming.updatedAt > existing.updatedAt ||
+                    (incoming.updatedAt == existing.updatedAt && incoming.removed && !existing.removed)
+            if (wins) merged[key] = incoming
+        }
     return merged.values.toList()
 }
 
@@ -55,8 +75,10 @@ open class MarkRegistry(
         val artistIds = items.filter { it.kind == MarkKind.ARTIST }.mapTo(mutableSetOf()) { it.id }
     }
 
+    @Volatile
     private var cached: Parsed? = null
 
+    @Synchronized
     private fun parsed(): Parsed {
         val source = read()
         cached?.takeIf { it.source == source }?.let { return it }
@@ -75,9 +97,10 @@ open class MarkRegistry(
     fun entries(): List<MarkedItem> = parsed().all
 
     /** Folds another device's entries in; returns true when anything here changed. */
+    @Synchronized
     fun mergeFrom(remote: List<MarkedItem>): Boolean {
         val current = entries()
-        val merged = mergeMarks(current, remote)
+        val merged = mergeMarks(current, remote, now())
         if (merged == current) return false
         save(merged)
         return true
@@ -99,12 +122,14 @@ open class MarkRegistry(
         return markArtists && song.artists.any { artist -> artist.id?.let { it in parsed.artistIds } == true }
     }
 
+    @Synchronized
     fun mark(item: MarkedItem) {
         if (item.id.isBlank()) return
         val stamped = item.copy(updatedAt = now(), removed = false)
         save(listOf(stamped) + entries().filterNot { it.kind == item.kind && it.id == item.id })
     }
 
+    @Synchronized
     fun unmark(
         kind: MarkKind,
         id: String,

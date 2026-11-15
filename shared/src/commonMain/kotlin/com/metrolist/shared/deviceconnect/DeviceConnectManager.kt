@@ -278,6 +278,7 @@ class DeviceConnectManager
                 importSettings = settings::importSyncSettings,
                 settingsDifferences = settings::syncDifferenceCount,
                 marksVersion = { settings.incognitoMarksJson to settings.skipMarksJson },
+                allowSettingsRequest = { !settings.incognitoModeEnabled },
             ).also { it.start(_dataPeerIds, _dataMessages) }
 
         suspend fun enable(context: Any?) {

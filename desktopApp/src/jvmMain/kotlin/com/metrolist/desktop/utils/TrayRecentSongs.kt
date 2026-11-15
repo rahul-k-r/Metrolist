@@ -4,6 +4,7 @@ import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.db.entities.toSongItem
 import com.metrolist.shared.model.SongItem
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import org.koin.core.context.GlobalContext
 
@@ -14,7 +15,7 @@ internal object TrayRecentSongs {
     fun flow(limit: Int): Flow<List<SongItem>> =
         database.dao().events().map { events ->
             recentDistinct(events.asSequence().map { it.song.toSongItem() }, { it.id }, limit)
-        }
+        }.distinctUntilChanged()
 }
 
 internal fun <T> recentDistinct(

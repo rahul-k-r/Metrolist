@@ -888,7 +888,13 @@ class MusicPlayer(
                 // The pause lands when the ramp ends, unless a resume reverses it first.
                 runPauseFade(player, 0f) {
                     synchronized(playerLock) {
-                        if (audioPlayer !== player) return@synchronized
+                        // A resume that raced the end of the ramp has already retargeted it to 1.
+                        if (pauseFade.target != 0f) return@synchronized
+                        if (audioPlayer !== player) {
+                            // The player was replaced mid-ramp; don't leave a stale fade for the next resume to read.
+                            cancelPauseFade(audioPlayer)
+                            return@synchronized
+                        }
                         player.pause()
                         if (isCrossfading) nextPlayer?.pause()
                         player.setFadeGain(1f)
@@ -945,13 +951,16 @@ class MusicPlayer(
             val player = audioPlayer
             val fadeIn = Settings.shared.playPauseFadeEnabled && !isCrossfading
             val reversingFadeOut = pauseFadeJob?.isActive == true && pauseFade.target == 0f
-            if (fadeIn && !reversingFadeOut) {
+            // A redundant resume on a player that is already audible must not dip to silence.
+            val wasPlaying = player.isPlaying()
+            val ramp = fadeIn && (reversingFadeOut || !wasPlaying)
+            if (ramp && !reversingFadeOut) {
                 pauseFade.reset(0f)
                 player.setFadeGain(0f)
             }
             player.resume()
             if (isCrossfading && !nextStartsPaused) nextPlayer?.resume()
-            if (fadeIn) runPauseFade(player, 1f) {} else cancelPauseFade(player)
+            if (ramp) runPauseFade(player, 1f) {} else cancelPauseFade(player)
         }
     }
 

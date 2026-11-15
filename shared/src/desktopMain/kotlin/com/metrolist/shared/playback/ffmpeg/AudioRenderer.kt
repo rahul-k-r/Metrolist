@@ -400,11 +400,13 @@ class AudioRenderer private constructor(
     fun setVolume(volume: Float) {
         val clampedVol = volume.coerceIn(0.0f, 1.0f)
         this.volume = clampedVol
-        hardwareVolumeApplied = false
+        // The flag is only changed inside the lock, after the native write: flipping it false first made the
+        // writer apply software gain on top of the previous hardware gain for a chunk on every fade tick.
         // The master-gain write is a native audio-session call; it must not race close()/flush() on the
         // same line (heap corruption inside AudioSes.dll in crash dumps), so it shares their lock.
         synchronized(safeLock) {
             if (!line.isOpen) return
+            if (masterGainControl == null) hardwareVolumeApplied = false
             masterGainControl?.let { control ->
                 try {
                     if (clampedVol <= 0.0001f) {
@@ -415,6 +417,7 @@ class AudioRenderer private constructor(
                     }
                     hardwareVolumeApplied = true
                 } catch (_: Exception) {
+                    hardwareVolumeApplied = false
                     runCatching { control.value = 0f.coerceIn(control.minimum, control.maximum) }
                 }
             }

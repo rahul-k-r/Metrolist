@@ -172,6 +172,44 @@ class ItemMarksTest {
     }
 
     @Test
+    fun aFarFutureRemoteTimestampIsClampedSoALaterLocalChangeStillWins() {
+        var t = 1_000_000L
+        val local = registry { t }
+        local.mark(MarkedItem(MarkKind.SONG, "a", "Local"))
+        local.mergeFrom(listOf(MarkedItem(MarkKind.SONG, "a", "Remote", updatedAt = Long.MAX_VALUE)))
+        t += 10 * 60 * 1000L
+        local.unmark(MarkKind.SONG, "a")
+        assertFalse(local.isMarked(MarkKind.SONG, "a"))
+    }
+
+    @Test
+    fun aTieBetweenAMarkAndATombstoneKeepsTheTombstone() {
+        val merged =
+            mergeMarks(
+                local = listOf(MarkedItem(MarkKind.SONG, "a", "A", updatedAt = 50L)),
+                remote = listOf(MarkedItem(MarkKind.SONG, "a", "A", updatedAt = 50L, removed = true)),
+                now = 100L,
+            )
+        assertTrue(merged.single().removed)
+    }
+
+    @Test
+    fun invalidRemoteEntriesAreDropped() {
+        val merged =
+            mergeMarks(
+                local = emptyList(),
+                remote =
+                    listOf(
+                        MarkedItem(MarkKind.SONG, "", "blank id", updatedAt = 1L),
+                        MarkedItem(MarkKind.SONG, "x".repeat(5000), "huge id", updatedAt = 1L),
+                        MarkedItem(MarkKind.SONG, "ok", "fine", updatedAt = 1L),
+                    ),
+                now = 100L,
+            )
+        assertEquals(listOf("ok"), merged.map { it.id })
+    }
+
+    @Test
     fun otherQueuesKeepEveryEntry() {
         Settings.shared.skipMarkingEnabled = true
         SkipMarks.mark(marked(MarkKind.SONG, "b"))

@@ -54,6 +54,18 @@ class TrayClickGateTest {
     }
 
     @Test
+    fun aTaskThatAlreadyStartedCannotAlsoFireSingleAfterADouble() {
+        var started: (() -> Unit)? = null
+        val events = mutableListOf<String>()
+        // A canceller that claims success even though the task is already running, like FutureTask.cancel(false).
+        val g = TrayClickGate({ 400L }, { _, task -> started = task; { true } }, { events += "single" }, { events += "double" })
+        g.click()
+        g.click()
+        started?.invoke()
+        assertEquals(listOf("double"), events)
+    }
+
+    @Test
     fun clicksAfterTheSingleHasRunStartAFreshSequence() {
         val s = FakeScheduler()
         val events = mutableListOf<String>()

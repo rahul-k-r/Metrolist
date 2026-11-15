@@ -1010,7 +1010,12 @@ class ExoPlaybackPlayer(
         logCommand("pause")
         if (Settings.shared.playPauseFadeEnabled && exo.isPlaying && !nextStarted) {
             // The pause lands when the ramp ends, unless a resume reverses it first.
-            startPauseFade(0f) { pauseOutput() }
+            val fadingPlayer = exo
+            val fadingMediaId = fadingPlayer.currentMediaItem?.mediaId
+            startPauseFade(0f, stillCurrent = {
+                // Another track started during the ramp: it must not inherit this fade-out or its pause.
+                exo === fadingPlayer && exo.currentMediaItem?.mediaId == fadingMediaId
+            }) { pauseOutput() }
         } else {
             cancelPauseFade()
             pauseOutput()
@@ -1027,6 +1032,7 @@ class ExoPlaybackPlayer(
 
     private fun startPauseFade(
         target: Float,
+        stillCurrent: () -> Boolean = { true },
         onDone: () -> Unit,
     ) {
         pauseFadeJob?.cancel()
@@ -1035,13 +1041,21 @@ class ExoPlaybackPlayer(
         pauseFadeJob =
             scope.launch {
                 while (isActive) {
+                    if (!stillCurrent()) {
+                        cancelPauseFade()
+                        applyPlaybackGains()
+                        return@launch
+                    }
                     val now = clock()
                     pauseFadeGain = pauseFade.gainAt(now)
                     applyPlaybackGains()
                     if (pauseFade.isDone(now)) break
                     delay(PAUSE_FADE_TICK_MS)
                 }
-                if (isActive) onDone()
+                if (isActive && stillCurrent()) onDone() else if (isActive) {
+                    cancelPauseFade()
+                    applyPlaybackGains()
+                }
             }
     }
 
@@ -1061,8 +1075,10 @@ class ExoPlaybackPlayer(
             recordSeek(exo, 0L, PlaybackSeekSource("queue_restore", mapOf("reason" to "resume_ended")))
             exo.seekToDefaultPosition()
         }
-        val fadeIn = Settings.shared.playPauseFadeEnabled && !nextStarted
-        if (fadeIn && !(pauseFadeJob?.isActive == true && pauseFade.target == 0f)) {
+        val reversingFadeOut = pauseFadeJob?.isActive == true && pauseFade.target == 0f
+        // A redundant resume on audible playback must not dip to silence.
+        val fadeIn = Settings.shared.playPauseFadeEnabled && !nextStarted && (reversingFadeOut || !exo.isPlaying)
+        if (fadeIn && !reversingFadeOut) {
             pauseFade.reset(0f)
             pauseFadeGain = 0f
             applyPlaybackGains()
@@ -1076,6 +1092,7 @@ class ExoPlaybackPlayer(
 
     override fun stop() {
         onPlaybackCommand()
+        cancelPauseFade()
         cancelScreenOffFocusRecovery()
         outputRecoveryState = outputRecoveryState.cancelUserRecovery()
         controllerClock = null

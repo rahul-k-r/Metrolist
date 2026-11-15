@@ -218,6 +218,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
@@ -1435,13 +1436,16 @@ private fun runDesktopApp(args: Array<String>) {
                     }
                 }
                 startup.appFrame.await()
-                if (Settings.shared.startMinimizedToTray) ComposeTrayManager.hideWindow()
+                // Hiding with no working system tray would leave the app unreachable.
+                if (Settings.shared.startMinimizedToTray && java.awt.SystemTray.isSupported()) ComposeTrayManager.hideWindow()
                 if (!OsUtil.isMac) withContext(Dispatchers.IO) { DesktopUrlHandler.install() }
                 DesktopUrlHandler.onUiReady()
             }
 
             LaunchedEffect(Unit) {
+                // With the setting off at launch there is nothing to undo, so do not touch the registry.
                 snapshotFlow { Settings.shared.startWithSystem }
+                    .drop(if (Settings.shared.startWithSystem) 0 else 1)
                     .collect { enabled -> withContext(Dispatchers.IO) { WindowsAutostart.sync(enabled) } }
             }
 

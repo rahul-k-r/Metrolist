@@ -302,8 +302,8 @@ object ComposeTrayManager {
                 if (libraryPlaylists.isNotEmpty()) {
                     SubMenu(label = strPlaylists) {
                         libraryPlaylists.take(TRAY_PLAYLIST_LIMIT).forEach { playlist ->
-                            SubMenu(label = playlist.name) {
-                                Item(label = strPlay) { TrayPlaylistPlayer.play(playlist.id) }
+                            SubMenu(label = playlist.name.takeIf { it.isNotBlank() } ?: strUnknownTitle) {
+                                Item(label = strPlay, isEnabled = !isListenTogetherGuest) { TrayPlaylistPlayer.play(playlist.id) }
                                 Item(label = strOpenPlaylist) {
                                     showWindow()
                                     EventQueue.invokeLater { DesktopNavigation.navigate(Screen.Playlist(playlist.id)) }

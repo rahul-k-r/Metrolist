@@ -95,8 +95,15 @@ fun TempoPitchControls(
 ) {
     val savedForSong = songId?.let { SongTempoPitch.get(Settings.shared.songTempoPitchJson, it) }
     // While a song has a saved value, keep it in step with what the sliders show.
+    var syncedSongId by remember { mutableStateOf(songId) }
     LaunchedEffect(songId, speed, pitch) {
-        if (songId != null && SongTempoPitch.get(Settings.shared.songTempoPitchJson, songId) != null) {
+        // On a song change the sliders still show the previous song's values until the player applies this
+        // song's own; writing them now would overwrite its saved entry.
+        if (songId != syncedSongId) {
+            syncedSongId = songId
+            return@LaunchedEffect
+        }
+        if (songId != null &&SongTempoPitch.get(Settings.shared.songTempoPitchJson, songId) != null) {
             Settings.shared.songTempoPitchJson =
                 SongTempoPitch.set(Settings.shared.songTempoPitchJson, songId, SongTempoPitchValue(speed, pitch))
         }

@@ -241,7 +241,11 @@ internal class AndroidVideoModeController(
     }
 
     fun setVideoMode(wantVideo: Boolean) {
-        if (AndroidDeviceConnect.manager.remote.isFollowing) return
+        if (AndroidDeviceConnect.manager.remote.isFollowing) {
+            // The Song/Video switcher asks for an explicit mode; the playing device applies it.
+            AndroidDeviceConnect.intercept(DcPlaybackCommand(DcPlaybackAction.VIDEO_MODE, enabled = wantVideo))
+            return
+        }
         if (wantVideo && !Settings.shared.musicVideoPlaybackEnabled) return
         if (!wantVideo && _isVideoModeResolving.value && !_isVideoModeActive.value) {
             clearVideoMode(resetViewerPreference = true)

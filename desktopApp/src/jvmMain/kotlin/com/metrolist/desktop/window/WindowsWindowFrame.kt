@@ -599,7 +599,7 @@ fun FrameWindowScope.WindowsWindowFrame(
                     if (PlayerState.isFullscreen) {
                         windowsToggleFullscreen()
                     } else if (UiState.showVideoFullscreen) {
-                        UiState.showVideoFullscreen = false
+                        PlayerState.closeVideoViewer()
                     } else {
                         PlayerState.exitExpanded()
                     }

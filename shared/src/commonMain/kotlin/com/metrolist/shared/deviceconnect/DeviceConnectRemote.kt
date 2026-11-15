@@ -132,6 +132,8 @@ class DeviceConnectRemote(
             playback.setExternalReportingEnabled(enabled = !isFollowing, session = canonical?.playback?.scrobbleSession)
             _state.value = _state.value.copy(playbackAvailable = true)
             canonical?.let { applyCanonical(it) }
+            // The maintenance tick may have fired while no port was attached, which makes discovery a no-op.
+            if (canonical == null) discoverNow()
         }
     }
 
@@ -223,11 +225,13 @@ class DeviceConnectRemote(
     }
 
     fun discoverPlayback() {
-        enqueue {
-            if (isActive || peers.isEmpty() || transferBlocked()) return@enqueue
-            if (port?.snapshot()?.playing != false) return@enqueue
-            peers.toList().forEach { send(it, DcSyncMessage(DcSyncMessageType.ATTACH, auto = true)) }
-        }
+        enqueue { discoverNow() }
+    }
+
+    private suspend fun discoverNow() {
+        if (isActive || peers.isEmpty() || transferBlocked()) return
+        if (port?.snapshot()?.playing != false) return
+        peers.toList().forEach { send(it, DcSyncMessage(DcSyncMessageType.ATTACH, auto = true)) }
     }
 
     fun localStateChanged(trackChanged: Boolean = false) {
@@ -261,8 +265,7 @@ class DeviceConnectRemote(
         enqueue {
             peers += peerId
             if (supportsPlaybackClock) clockPeers += peerId else clockPeers -= peerId
-            if (supportsPlaybackPitch) pitchPeers += peerId else pitchPeers -= peerId
-        }
+            if (supportsPlaybackPitch) pitchPeers += peerId else pitchPeers -= peerId        }
     }
 
     fun onPeerDisconnected(

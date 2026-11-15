@@ -1,0 +1,41 @@
+name: Fork bump version
+
+# Changes only the fork-owned custom part of the version (fork/custom-version.txt). The upstream part is never touched.
+
+on:
+  workflow_dispatch:
+    inputs:
+      part:
+        description: Which custom component to increment (lower parts reset to 0)
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: custom
+      - name: Bump
+        env:
+          PART: ${{ inputs.part }}
+        run: |
+          set -euo pipefail
+          IFS=. read -r major minor patch < <(tr -d '\r\n ' < fork/custom-version.txt)
+          case "$PART" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+          echo "$major.$minor.$patch" > fork/custom-version.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add fork/custom-version.txt
+          git commit -m "Fork version $major.$minor.$patch"
+          git push origin HEAD:custom

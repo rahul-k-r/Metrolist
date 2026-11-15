@@ -78,8 +78,8 @@ on:
 jobs:
   build:
     name: APK
-    runs-on: ${{ inputs.variant == 'release' && 'blacksmith-8vcpu-ubuntu-2604' || 'blacksmith-4vcpu-ubuntu-2604' }}
-    timeout-minutes: 15
+    runs-on: ubuntu-24.04 # fork: GitHub-hosted runner instead of Blacksmith
+    timeout-minutes: 45
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

@@ -1,0 +1,89 @@
+name: Fork sync
+
+# 1. Keeps this fork's `main` a fast-forward mirror of upstream `main` (every run).
+# 2. Opens a PR into `custom` only when upstream publishes a new stable release.
+#    The PR merges the release TAG, not upstream main, so `custom` never absorbs unreleased commits.
+#    fork/custom-version.txt is fork-owned, so the custom part of the version survives the merge.
+#
+# Needs a repository secret FORK_SYNC_TOKEN (fine-grained PAT on this repo: Contents, Pull requests, Issues,
+# Workflows = read/write). The default GITHUB_TOKEN cannot push upstream commits that touch workflow files.
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: fork-sync
+  cancel-in-progress: false
+
+env:
+  UPSTREAM: https://github.com/MetrolistGroup/Metrolist.git
+  UPSTREAM_REPO: MetrolistGroup/Metrolist
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ secrets.FORK_SYNC_TOKEN || github.token }}
+    steps:
+      - name: Check token
+        run: |
+          if [ -z "${{ secrets.FORK_SYNC_TOKEN }}" ]; then
+            echo "::warning::FORK_SYNC_TOKEN is not set; pushing upstream commits that change workflows will fail"
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: custom
+          fetch-depth: 0
+          token: ${{ secrets.FORK_SYNC_TOKEN || github.token }}
+
+      - name: Mirror upstream main
+        run: |
+          set -euo pipefail
+          git remote add upstream "$UPSTREAM"
+          git fetch --no-tags upstream main
+          git push origin FETCH_HEAD:refs/heads/main
+
+      - name: Open a PR if upstream has a new release
+        run: |
+          set -euo pipefail
+          tag="$(gh api "repos/$UPSTREAM_REPO/releases/latest" --jq .tag_name)"
+          latest="${tag#v}"
+          current="$(sed -n 's/^appVersion=//p' gradle.properties | tr -d '\r')"
+          echo "upstream release: $latest, merged into custom: $current"
+          [[ "$latest" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Latest release is not plain MAJOR.MINOR.PATCH; skipping"; exit 0; }
+          if [ "$latest" = "$current" ] || [ "$(printf '%s\n%s\n' "$current" "$latest" | sort -V | tail -1)" = "$current" ]; then
+            echo "custom already has $current"
+            exit 0
+          fi
+
+          branch="sync/$tag"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "$branch already exists"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch --no-tags upstream "+refs/tags/$tag:refs/upstream-tags/$tag"
+          git switch -c "$branch"
+          if ! git merge --no-ff -m "Merge upstream $tag into custom" "refs/upstream-tags/$tag"; then
+            git merge --abort
+            gh issue create \
+              --title "Upstream $tag conflicts with custom" \
+              --body "Merging upstream tag \`$tag\` into \`custom\` conflicts. Merge it by hand: \`git fetch upstream tag $tag && git merge $tag\`." \
+              || true
+            exit 0
+          fi
+          git push origin "$branch"
+          gh pr create --base custom --head "$branch" \
+            --title "Merge upstream $tag" \
+            --body "Upstream released \`$tag\`. This merges that tag into \`custom\`; the custom version in \`fork/custom-version.txt\` is unchanged, so the next release will be \`$latest+$(tr -d '\r\n ' < fork/custom-version.txt)\` unless you bump it."

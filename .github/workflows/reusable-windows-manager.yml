@@ -19,7 +19,7 @@ on:
 jobs:
   build:
     name: Windows manager
-    runs-on: blacksmith-2vcpu-windows-2025
+    runs-on: windows-2025 # fork: GitHub-hosted runner instead of Blacksmith
     timeout-minutes: 15
     permissions:
       contents: read
@@ -62,7 +62,7 @@ jobs:
               TargetVersion = "$env:APP_VERSION"
               ReleaseTag = "v$env:APP_VERSION"
               DesktopAssetName = "Metrolist-Desktop-windows.zip"
-              RepositoryOwner = "MetrolistGroup"
+              RepositoryOwner = "rahul-k-r"
               RepositoryName = "Metrolist"
           )
           "@

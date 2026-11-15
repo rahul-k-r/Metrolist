@@ -4014,7 +4014,7 @@ object PlayerState {
             scope.launch { seekCastTo(positionMs) }
             return
         }
-        cancelCrossfadeForManualAction()
+        transitions.onSeek()
         invalidatePersistedRestore()
         val dur = player.duration.value
         val targetMs = if (dur > 0) positionMs.coerceIn(0, dur) else positionMs.coerceAtLeast(0)
@@ -4055,7 +4055,7 @@ object PlayerState {
             scope.launch { seekCastTo(targetMs) }
             return
         }
-        cancelCrossfadeForManualAction()
+        transitions.onSeek()
         invalidatePersistedRestore()
         val dur = player.duration.value
         if (dur > 0) {

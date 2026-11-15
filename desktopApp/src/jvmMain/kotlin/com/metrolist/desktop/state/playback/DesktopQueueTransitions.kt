@@ -67,6 +67,15 @@ internal class DesktopQueueTransitions(
         pendingEof = false
     }
 
+    /**
+     * A seek moves within the same track, so the next track prepared during the lead-in stays valid. Dropping it
+     * would force a re-resolve that cannot finish when the seek lands in the last seconds. Only a fade already
+     * running is abandoned, since its outgoing position is no longer meaningful.
+     */
+    fun onSeek() {
+        if (isCrossfading) cancel()
+    }
+
     fun failedOutgoingTrack(
         videoId: String?,
         instanceId: Long,

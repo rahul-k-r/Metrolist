@@ -57,6 +57,7 @@ import com.metrolist.shared.model.MUSIC_VIDEO_TYPE_LIVE
 import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.model.isLive
 import com.metrolist.shared.playback.MusicQueue
+import com.metrolist.shared.playback.PlayPauseFadeRamp
 import com.metrolist.shared.playback.MusicQueueSnapshot
 import com.metrolist.shared.playback.PlaybackFailure
 import com.metrolist.shared.playback.PlaybackFailureCategory
@@ -114,6 +115,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
@@ -126,6 +128,7 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.abs
 import kotlin.time.Duration.Companion.milliseconds
 
+private const val PAUSE_FADE_TICK_MS = 8L
 private const val PREPARATION_TIMEOUT_MS = 15_000L
 private const val SCREEN_OFF_FOCUS_RECOVERY_DELAY_MS = 800L
 private const val RELEASE_STATS_TIMEOUT_MS = 2_000L
@@ -588,6 +591,9 @@ class ExoPlaybackPlayer(
     private var liveSessionAccumulatedMs = 0L
 
     private var sleepTimerGain = 1f
+    private val pauseFade = PlayPauseFadeRamp()
+    private var pauseFadeGain = 1f
+    private var pauseFadeJob: Job? = null
     private var transitionGain = 1f
     private var nextTransitionGain = 0f
 
@@ -1002,9 +1008,48 @@ class ExoPlaybackPlayer(
         onPlaybackCommand()
         cancelScreenOffFocusRecovery()
         logCommand("pause")
+        if (Settings.shared.playPauseFadeEnabled && exo.isPlaying && !nextStarted) {
+            // The pause lands when the ramp ends, unless a resume reverses it first.
+            startPauseFade(0f) { pauseOutput() }
+        } else {
+            cancelPauseFade()
+            pauseOutput()
+        }
+    }
+
+    private fun pauseOutput() {
         exo.pause()
         if (nextStarted) nextPlayer?.pause()
         maybeRecoverAudioOutput(userAction = AudioOutputUserAction.PAUSE)
+        pauseFadeGain = 1f
+        applyPlaybackGains()
+    }
+
+    private fun startPauseFade(
+        target: Float,
+        onDone: () -> Unit,
+    ) {
+        pauseFadeJob?.cancel()
+        val clock = { System.nanoTime() / 1_000_000L }
+        pauseFade.fadeTo(target, clock(), Settings.shared.playPauseFadeDurationMs.toLong())
+        pauseFadeJob =
+            scope.launch {
+                while (isActive) {
+                    val now = clock()
+                    pauseFadeGain = pauseFade.gainAt(now)
+                    applyPlaybackGains()
+                    if (pauseFade.isDone(now)) break
+                    delay(PAUSE_FADE_TICK_MS)
+                }
+                if (isActive) onDone()
+            }
+    }
+
+    private fun cancelPauseFade() {
+        pauseFadeJob?.cancel()
+        pauseFadeJob = null
+        pauseFade.reset(1f)
+        pauseFadeGain = 1f
     }
 
     override fun resume() {
@@ -1016,10 +1061,17 @@ class ExoPlaybackPlayer(
             recordSeek(exo, 0L, PlaybackSeekSource("queue_restore", mapOf("reason" to "resume_ended")))
             exo.seekToDefaultPosition()
         }
+        val fadeIn = Settings.shared.playPauseFadeEnabled && !nextStarted
+        if (fadeIn && !(pauseFadeJob?.isActive == true && pauseFade.target == 0f)) {
+            pauseFade.reset(0f)
+            pauseFadeGain = 0f
+            applyPlaybackGains()
+        }
         exo.play()
         exo.playerError?.let(::reportPlaybackFailure)
         syncNextPlayback()
         maybeRecoverAudioOutput(userAction = AudioOutputUserAction.RESUME)
+        if (fadeIn) startPauseFade(1f) {} else cancelPauseFade()
     }
 
     override fun stop() {
@@ -1976,7 +2028,7 @@ class ExoPlaybackPlayer(
         exo.volume =
             playbackOutputGain(
                 effectivePlaybackVolume(_volume.value, audioOutputEnabled),
-                sleepTimerGain,
+                sleepTimerGain * pauseFadeGain,
                 transitionGain,
                 (normalizationProcessors[exo]?.normalizationGain ?: 1f).coerceAtMost(1f),
             )

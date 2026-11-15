@@ -427,6 +427,8 @@ class Settings(
     var crossfadeEnabled by preference(false)
     var crossfadeDuration by preference(10f)
     var crossfadeGapless by preference(true)
+    var playPauseFadeEnabled by preference(true)
+    var playPauseFadeDurationMs by preference(300f)
     var sponsorBlockEnabled by preference(SponsorBlockEnabledKey, false)
     var skipSilence by preference(false)
     var skipSilenceInstant by preference(false)
@@ -539,6 +541,7 @@ class Settings(
     var incognitoMarksJson by preference("")
     var skipMarkingEnabled by preference(false)
     var skipMarksJson by preference("")
+    var providerLyricsOffsetsJson by preference("")
 
     val isIncognito: Boolean get() = IncognitoPolicy.isIncognito(incognitoModeEnabled, incognitoActive)
 
@@ -1031,6 +1034,20 @@ class Settings(
 
     fun exportBackupSettings(): PortableSettings = exportSettings(backupExcludedKeys)
 
+    /** Settings that make sense on another device: no credentials, device ids, window/tray prefs or marks. */
+    fun exportSyncSettings(): PortableSettings = exportSettings(syncExcludedKeys)
+
+    fun importSyncSettings(snapshot: PortableSettings) {
+        validatePortableSettings(snapshot)
+        importSettings(snapshot, syncExcludedKeys, emptySet())
+    }
+
+    /** How many values in [snapshot] would change this device's settings. */
+    fun syncDifferenceCount(snapshot: PortableSettings): Int {
+        val current = exportSyncSettings().entries.associateBy { it.key }
+        return snapshot.entries.count { it.key !in syncExcludedKeys && current[it.key]?.value != it.value }
+    }
+
     fun flush() {
         (settings as? FlushableSettings)?.flush()
     }
@@ -1340,6 +1357,17 @@ class Settings(
                     LastFmPhotoCacheJsonKey,
                 )
         private val backupExcludedKeys = nonPortableKeys - backupCredentialKeys
+        private val syncExcludedKeys =
+            nonPortableKeys +
+                setOf(
+                    "startWithSystem",
+                    "startMinimizedToTray",
+                    "minimizeToTrayOnClose",
+                    "desktopTrayToggleOnClick",
+                    "desktopTrayClickPlayPause",
+                    "incognitoMarksJson",
+                    "skipMarksJson",
+                )
         private const val PORTABLE_SETTINGS_VERSION = 1
         const val DEFAULT_LISTEN_TOGETHER_SERVER_URL = "wss://metroserverx.meowery.eu/ws"
         const val DEFAULT_FARADAY_PLAYER_CONFIG_URL =

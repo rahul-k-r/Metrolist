@@ -212,6 +212,7 @@ private fun DeviceConnectPanelSurface(
             syncState = syncState,
             onEnableDeviceConnect = { scope.launch { manager.enable(Unit) } },
             onTransferTo = manager.remote::transferTo,
+            dataSync = manager.dataSync,
             onClose = { UiState.showDeviceConnectPanel = false },
             onOpenIntegrations = {
                 UiState.showDeviceConnectPanel = false

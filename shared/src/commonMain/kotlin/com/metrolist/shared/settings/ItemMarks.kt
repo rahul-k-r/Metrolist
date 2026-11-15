@@ -6,27 +6,51 @@ import androidx.compose.runtime.setValue
 import com.metrolist.shared.model.SongItem
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlin.time.Clock
 
 enum class MarkKind { SONG, ARTIST }
 
+/**
+ * [updatedAt] and [removed] let two devices merge their marks: the newest change to an item wins, and an
+ * unmark is kept as a tombstone so a device that still has the mark cannot bring it back.
+ */
 @Serializable
 data class MarkedItem(
     val kind: MarkKind,
     val id: String,
     val title: String,
     val thumbnail: String? = null,
+    val updatedAt: Long = 0L,
+    val removed: Boolean = false,
 )
+
+/** Newest change per item wins; on a tie the local entry is kept. */
+fun mergeMarks(
+    local: List<MarkedItem>,
+    remote: List<MarkedItem>,
+): List<MarkedItem> {
+    val merged = LinkedHashMap<Pair<MarkKind, String>, MarkedItem>()
+    local.forEach { merged[it.kind to it.id] = it }
+    remote.forEach { incoming ->
+        val key = incoming.kind to incoming.id
+        val existing = merged[key]
+        if (existing == null || incoming.updatedAt > existing.updatedAt) merged[key] = incoming
+    }
+    return merged.values.toList()
+}
 
 /** A small set of user-marked items persisted as one JSON setting, so marks follow backups and need no DB migration. */
 open class MarkRegistry(
     private val read: () -> String,
     private val write: (String) -> Unit,
     private val markArtists: Boolean,
+    private val now: () -> Long = { Clock.System.now().toEpochMilliseconds() },
 ) {
     private class Parsed(
         val source: String,
-        val items: List<MarkedItem>,
+        val all: List<MarkedItem>,
     ) {
+        val items = all.filterNot { it.removed }
         val songIds = items.filter { it.kind == MarkKind.SONG }.mapTo(mutableSetOf()) { it.id }
         val artistIds = items.filter { it.kind == MarkKind.ARTIST }.mapTo(mutableSetOf()) { it.id }
     }
@@ -47,6 +71,18 @@ open class MarkRegistry(
 
     fun items(): List<MarkedItem> = parsed().items
 
+    /** Everything that is synced, including tombstones. */
+    fun entries(): List<MarkedItem> = parsed().all
+
+    /** Folds another device's entries in; returns true when anything here changed. */
+    fun mergeFrom(remote: List<MarkedItem>): Boolean {
+        val current = entries()
+        val merged = mergeMarks(current, remote)
+        if (merged == current) return false
+        save(merged)
+        return true
+    }
+
     fun isMarked(
         kind: MarkKind,
         id: String?,
@@ -65,22 +101,33 @@ open class MarkRegistry(
 
     fun mark(item: MarkedItem) {
         if (item.id.isBlank()) return
-        save(listOf(item) + items().filterNot { it.kind == item.kind && it.id == item.id })
+        val stamped = item.copy(updatedAt = now(), removed = false)
+        save(listOf(stamped) + entries().filterNot { it.kind == item.kind && it.id == item.id })
     }
 
     fun unmark(
         kind: MarkKind,
         id: String,
-    ) = save(items().filterNot { it.kind == kind && it.id == id })
+    ) {
+        val existing = entries().firstOrNull { it.kind == kind && it.id == id && !it.removed } ?: return
+        save(
+            listOf(existing.copy(updatedAt = now(), removed = true)) +
+                entries().filterNot { it.kind == kind && it.id == id },
+        )
+    }
 
     fun toggle(item: MarkedItem) {
         if (isMarked(item.kind, item.id)) unmark(item.kind, item.id) else mark(item)
     }
 
-    private fun save(items: List<MarkedItem>) = write(json.encodeToString(items))
+    private fun save(items: List<MarkedItem>) {
+        val cutoff = now() - TOMBSTONE_TTL_MS
+        write(json.encodeToString(items.filterNot { it.removed && it.updatedAt < cutoff }))
+    }
 
     private companion object {
         val json = Json { ignoreUnknownKeys = true }
+        const val TOMBSTONE_TTL_MS = 90L * 24 * 60 * 60 * 1000
     }
 }
 

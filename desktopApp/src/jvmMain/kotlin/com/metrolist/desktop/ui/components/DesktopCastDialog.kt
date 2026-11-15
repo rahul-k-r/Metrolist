@@ -24,6 +24,7 @@ fun DesktopCastDialog(onDismiss: () -> Unit) {
         syncState = syncState,
         onEnableDeviceConnect = { scope.launch { manager.enable(Unit) } },
         onTransferTo = manager.remote::transferTo,
+        dataSync = manager.dataSync,
         devices = devices,
         state = state,
         onDismiss = onDismiss,

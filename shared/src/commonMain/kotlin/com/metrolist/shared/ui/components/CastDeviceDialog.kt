@@ -13,6 +13,7 @@ import com.metrolist.shared.cast.CastError
 import com.metrolist.shared.cast.CastProtocol
 import com.metrolist.shared.cast.CastState
 import com.metrolist.shared.deviceconnect.DcSyncState
+import com.metrolist.shared.deviceconnect.DeviceConnectDataSync
 import com.metrolist.shared.deviceconnect.DeviceConnectManager
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.cast_connection_failed
@@ -41,6 +42,7 @@ fun CastDeviceDialog(
     syncState: DcSyncState = DcSyncState(),
     onEnableDeviceConnect: (() -> Unit)? = null,
     onTransferTo: (String) -> Unit = {},
+    dataSync: DeviceConnectDataSync? = null,
 ) {
     if (!Settings.shared.castEnabled) return
     DisposableEffect(Unit) {
@@ -66,6 +68,7 @@ fun CastDeviceDialog(
                 syncState = syncState,
                 onEnableDeviceConnect = onEnableDeviceConnect,
                 onTransferTo = onTransferTo,
+                dataSync = dataSync,
                 modifier = Modifier.heightIn(max = 640.dp),
             )
         }

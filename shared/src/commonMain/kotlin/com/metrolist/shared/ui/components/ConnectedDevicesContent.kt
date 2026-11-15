@@ -48,6 +48,7 @@ import com.metrolist.shared.cast.CastConnectionStatus
 import com.metrolist.shared.cast.CastDevice
 import com.metrolist.shared.cast.CastState
 import com.metrolist.shared.deviceconnect.DcSyncState
+import com.metrolist.shared.deviceconnect.DeviceConnectDataSync
 import com.metrolist.shared.deviceconnect.DeviceConnectManager
 import com.metrolist.shared.deviceconnect.DeviceConnectPlaybackStatus
 import com.metrolist.shared.generated.resources.Res
@@ -87,6 +88,7 @@ fun ConnectedDevicesContent(
     syncState: DcSyncState = DcSyncState(),
     onEnableDeviceConnect: (() -> Unit)? = null,
     onTransferTo: (String) -> Unit = {},
+    dataSync: DeviceConnectDataSync? = null,
     permissionRequired: Boolean = false,
     onOpenIntegrations: (() -> Unit)? = null,
     closeButtonModifier: Modifier = Modifier,
@@ -229,6 +231,7 @@ fun ConnectedDevicesContent(
                 }
             }
         }
+        if (dataSync != null) SettingsSyncSection(dataSync, peers)
         castState.error
             ?.takeIf {
                 Settings.shared.castEnabled

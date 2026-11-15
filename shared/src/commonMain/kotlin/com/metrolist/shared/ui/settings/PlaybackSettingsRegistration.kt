@@ -278,6 +278,22 @@ internal fun SettingsUiRegistryBuilder.registerPlaybackSettings(host: SharedSett
                 settings.crossfadeGapless = it
                 host.onSettingChanged(SettingsChangeEffect.AUDIO, null)
             }
+            switch(
+                id = "playPauseFadeEnabled",
+                title = stringResource(Res.string.play_pause_fade),
+                description = stringResource(Res.string.play_pause_fade_desc),
+                checked = settings.playPauseFadeEnabled,
+            ) { settings.playPauseFadeEnabled = it }
+            inlineSlider(
+                id = "playPauseFadeDuration",
+                title = stringResource(Res.string.play_pause_fade_duration),
+                valueLabel = stringResource(Res.string.offset_ms, settings.playPauseFadeDurationMs.roundToInt()),
+                value = settings.playPauseFadeDurationMs,
+                defaultValue = settings.defaultValue(settings::playPauseFadeDurationMs),
+                range = 100f..1000f,
+                steps = 8,
+                enabled = settings.playPauseFadeEnabled,
+            ) { settings.playPauseFadeDurationMs = (it / 50f).roundToInt() * 50f }
         }
         group("queue", stringResource(Res.string.queue)) {
             switch(

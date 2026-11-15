@@ -133,6 +133,44 @@ class ItemMarksTest {
         assertEquals(listOf("a", "c", "d", "e"), queue.items.value.map { it.id })
     }
 
+    private fun registry(clock: () -> Long): MarkRegistry {
+        var json = ""
+        return MarkRegistry({ json }, { json = it }, markArtists = true, now = clock)
+    }
+
+    @Test
+    fun unmarkLeavesATombstoneThatBeatsAnOlderRemoteMark() {
+        var t = 100L
+        val local = registry { t }
+        local.mark(marked(MarkKind.SONG, "a"))
+        t = 200L
+        local.unmark(MarkKind.SONG, "a")
+        assertFalse(local.isMarked(MarkKind.SONG, "a"))
+
+        val changed = local.mergeFrom(listOf(marked(MarkKind.SONG, "a").copy(updatedAt = 150L)))
+        assertFalse(changed)
+        assertFalse(local.isMarked(MarkKind.SONG, "a"))
+    }
+
+    @Test
+    fun newerRemoteMarkWinsAndTiesKeepLocal() {
+        var t = 100L
+        val local = registry { t }
+        local.mark(MarkedItem(MarkKind.SONG, "a", "Local"))
+        assertTrue(local.mergeFrom(listOf(MarkedItem(MarkKind.SONG, "a", "Remote", updatedAt = 300L))))
+        assertEquals(listOf("Remote"), local.items().map { it.title })
+        assertFalse(local.mergeFrom(listOf(MarkedItem(MarkKind.SONG, "a", "Tie", updatedAt = 300L))))
+        assertEquals(listOf("Remote"), local.items().map { it.title })
+    }
+
+    @Test
+    fun remoteTombstoneRemovesALocalMark() {
+        val local = registry { 100L }
+        local.mark(marked(MarkKind.SONG, "a"))
+        assertTrue(local.mergeFrom(listOf(marked(MarkKind.SONG, "a").copy(updatedAt = 500L, removed = true))))
+        assertFalse(local.isMarked(MarkKind.SONG, "a"))
+    }
+
     @Test
     fun otherQueuesKeepEveryEntry() {
         Settings.shared.skipMarkingEnabled = true

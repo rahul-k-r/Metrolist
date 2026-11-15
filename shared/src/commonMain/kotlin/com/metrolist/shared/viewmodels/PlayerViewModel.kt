@@ -1479,6 +1479,7 @@ class PlayerViewModel(
                             }
                         if (skipCache && parsedLyrics.isEmpty() && _uiState.value.lyrics.isNotEmpty()) return null
                         var published = false
+                        val providerOffsetMs = lyricsRepository.getLyricsOffset(activeOffsetVideoId, result?.provider)
 
                         fun publishEntries(entries: List<LyricsEntry>) {
                             if (!isCurrentLyricsRequest(songId, requestId)) return
@@ -1500,7 +1501,7 @@ class PlayerViewModel(
                                     rawLyricsProvider = result?.provider,
                                     lyricsUserSelected = result?.isUserSelected == true,
                                     lyricsProvider = lyricsProviderLabel(result?.provider, lyricsDoc),
-                                    lyricsOffsetMs = if (loaded) _uiState.value.lyricsOffsetMs else lyricsOffsetMs,
+                                    lyricsOffsetMs = if (loaded) _uiState.value.lyricsOffsetMs else providerOffsetMs,
                                     isLyricsLoading = skipCache || entries.isEmpty(),
                                     manualAiTranslationEnabled = forceAiTranslation,
                                     mvLyricsRetimed = false,
@@ -1898,6 +1899,7 @@ class PlayerViewModel(
                         manualAiTranslationEnabled = false,
                         mvLyricsRetimed = false,
                     )
+                syncLyricsOffsetForVideoMode(songId, _uiState.value.isVideoModeActive)
                 if (mlxSongwriters.isEmpty()) {
                     launch {
                         val ytWriters = lyricsRepository.getSongwriters(songId)
@@ -1971,7 +1973,7 @@ class PlayerViewModel(
     ) {
         viewModelScope.launch {
             val targetId = resolveActiveLyricsOffsetVideoId(songId, isVideoActive)
-            val offset = lyricsRepository.getLyricsOffset(targetId)
+            val offset = lyricsRepository.getLyricsOffset(targetId, _uiState.value.rawLyricsProvider)
             if (_uiState.value.currentSong?.id == songId && _uiState.value.isVideoModeActive == isVideoActive) {
                 _uiState.value = _uiState.value.copy(lyricsOffsetMs = offset)
             }
@@ -1986,11 +1988,12 @@ class PlayerViewModel(
         if (_uiState.value.currentSong?.id == songId) {
             _uiState.value = _uiState.value.copy(lyricsOffsetMs = offsetMs)
         }
+        val provider = _uiState.value.rawLyricsProvider
         lyricsOffsetSaveJob?.cancel()
         lyricsOffsetSaveJob =
             viewModelScope.launch {
                 delay(150.milliseconds)
-                lyricsRepository.setLyricsOffset(targetId, offsetMs)
+                lyricsRepository.setLyricsOffset(targetId, offsetMs, provider)
             }
     }
 

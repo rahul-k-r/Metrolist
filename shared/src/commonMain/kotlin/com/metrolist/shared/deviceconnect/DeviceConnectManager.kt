@@ -12,6 +12,7 @@
 package com.metrolist.shared.deviceconnect
 
 import androidx.compose.runtime.snapshotFlow
+import com.metrolist.shared.settings.MarkRegistry
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.utils.Logger
 import com.metrolist.shared.youtube.playback.PlaybackEventKind
@@ -39,6 +40,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -244,6 +246,40 @@ class DeviceConnectManager
         // Guarded by stateMutex; duplicate sockets represent one playback participant.
         private val playbackPeers = mutableSetOf<String>()
 
+        // Guarded by stateMutex; peers that advertised data-sync support.
+        private val dataPeers = mutableSetOf<String>()
+        private val _dataPeerIds = MutableStateFlow<Set<String>>(emptySet())
+        private val _dataMessages = MutableSharedFlow<Pair<String, ByteArray>>(extraBufferCapacity = 16)
+
+        private fun publishDataPeers() {
+            _dataPeerIds.value = dataPeers.toSet()
+        }
+
+        /** Sends app data to one connected peer that supports it; false when it cannot be delivered. */
+        internal suspend fun sendData(
+            deviceId: String,
+            bytes: ByteArray,
+        ): Boolean {
+            val session =
+                stateMutex.withLock {
+                    connections.values.firstOrNull { it.device.id == deviceId && it.supportsData() }
+                } ?: return false
+            return session.sendData(bytes)
+        }
+
+        /** Marks always sync between connected devices; settings only move when the user pushes or pulls. */
+        val dataSync =
+            DeviceConnectDataSync(
+                scope = scope,
+                transport = ::sendData,
+                incognitoMarks = MarkRegistry({ settings.incognitoMarksJson }, { settings.incognitoMarksJson = it }, markArtists = true),
+                skipMarks = MarkRegistry({ settings.skipMarksJson }, { settings.skipMarksJson = it }, markArtists = false),
+                exportSettings = settings::exportSyncSettings,
+                importSettings = settings::importSyncSettings,
+                settingsDifferences = settings::syncDifferenceCount,
+                marksVersion = { settings.incognitoMarksJson to settings.skipMarksJson },
+            ).also { it.start(_dataPeerIds, _dataMessages) }
+
         suspend fun enable(context: Any?) {
             settings.deviceConnectEnabled = true
             enableRuntime(context)
@@ -346,6 +382,8 @@ class DeviceConnectManager
                             pairingRequests = emptyList(),
                         )
                     playbackPeers.clear()
+                    dataPeers.clear()
+                    publishDataPeers()
                     connections.values.toList().also { connections.clear() }
                 }
             stopDiscovery()
@@ -1230,6 +1268,12 @@ class DeviceConnectManager
                 !closing && device.state == PeerState.CONNECTED &&
                     advertisedPlaybackVersion == DEVICE_CONNECT_PLAYBACK_VERSION && playbackVersion == DEVICE_CONNECT_PLAYBACK_VERSION
 
+            @Volatile private var peerSupportsData = false
+            private val dataAssembler = DeviceConnectPlaybackAssembler()
+            private val dataReceiveMutex = Mutex()
+
+            fun supportsData(): Boolean = !closing && device.state == PeerState.CONNECTED && peerSupportsData
+
             private val logTag: String
                 get() = "[$connectionId]"
 
@@ -1418,6 +1462,10 @@ class DeviceConnectManager
 
                     is PlaybackChunkPayload -> {
                         onPlaybackChunk(payload)
+                    }
+
+                    is DataChunkPayload -> {
+                        onDataChunk(payload)
                     }
 
                     is PingPayload -> {
@@ -2142,6 +2190,12 @@ class DeviceConnectManager
                     return
                 }
                 stateMutex.withLock {
+                    peerSupportsData = payload.supportsDataSync
+                    if (peerSupportsData) {
+                        if (dataPeers.add(device.id)) publishDataPeers()
+                    } else if (dataPeers.remove(device.id)) {
+                        publishDataPeers()
+                    }
                     playbackVersion = payload.playbackVersion
                     if (supportsPlayback()) {
                         playbackPeers.add(device.id)
@@ -2212,6 +2266,48 @@ class DeviceConnectManager
                 }
             }
 
+            suspend fun sendData(bytes: ByteArray): Boolean {
+                if (!supportsData() || !ensureSessionIdentityCurrent()) return false
+                return try {
+                    sendMutex.withLock {
+                        for (chunk in chunkDeviceConnectPlayback(bytes)) {
+                            if (!supportsData() || !ensureSessionIdentityCurrent()) return false
+                            val payload = DataChunkPayload(chunk.messageId, chunk.index, chunk.count, chunk.totalBytes, chunk.data)
+                            sendEncryptedLocked(DcMessageTypes.DATA, DcJson.encodeToString(payload))
+                        }
+                    }
+                    true
+                } catch (_: Exception) {
+                    close()
+                    currentCoroutineContext().ensureActive()
+                    false
+                }
+            }
+
+            private suspend fun onDataChunk(payload: DataChunkPayload) {
+                if (closing) return
+                if (!peerSupportsData) {
+                    protocolViolation("data before capability negotiation")
+                    return
+                }
+                val bytes =
+                    dataReceiveMutex.withLock {
+                        try {
+                            dataAssembler.accept(
+                                PlaybackChunkPayload(payload.messageId, payload.index, payload.count, payload.totalBytes, payload.data),
+                                nowMs(),
+                            )
+                        } catch (_: Exception) {
+                            dataAssembler.clear()
+                            protocolViolation("invalid data assembly")
+                            null
+                        }
+                    }
+                if (bytes != null && supportsData() && ensureSessionIdentityCurrent()) {
+                    _dataMessages.emit(device.id to bytes)
+                }
+            }
+
             private suspend fun onPing(payload: PingPayload) {
                 sendPostAuthEncrypted(DcMessageTypes.PONG, PongPayload(payload.t))
             }
@@ -2239,6 +2335,7 @@ class DeviceConnectManager
                         playbackVersion = advertisedPlaybackVersion,
                         supportsPlaybackClock = supportsPlaybackClock,
                         supportsPlaybackPitch = supportsPlaybackPitch,
+                        supportsDataSync = true,
                     ),
                 )
             }
@@ -2352,6 +2449,7 @@ class DeviceConnectManager
                             it.device.id == id && it.device.state == PeerState.CONNECTED && !it.closing
                         }
                     if (connectedSession == null) {
+                        if (dataPeers.remove(id)) publishDataPeers()
                         val wasPlaybackPeer = playbackPeers.remove(id)
                         if (wasPlaybackPeer || connections.values.none { it.device.id == id && !it.closing }) {
                             remote.onPeerDisconnected(id, intentionalClosure)
@@ -2584,6 +2682,8 @@ class DeviceConnectManager
                     if (current == previous || previous == null) return@withLock emptyList()
                     changed = true
                     playbackPeers.clear()
+                    dataPeers.clear()
+                    publishDataPeers()
 
                     peerById.entries
                         .filter { it.value.state == PeerState.ACCOUNT_MISMATCH || it.value.state == PeerState.ACCOUNT_UNRESOLVED }

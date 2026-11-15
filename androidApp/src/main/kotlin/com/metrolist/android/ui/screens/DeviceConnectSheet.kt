@@ -95,6 +95,7 @@ fun PlayerDeviceConnectSheet(
                 }
             },
             onTransferTo = manager.remote::transferTo,
+            dataSync = manager.dataSync,
             onClose = onDismissRequest,
             permissionRequired = !permissionGranted && requiredPermission != null,
             onOpenIntegrations = onNavigateToIntegrations,

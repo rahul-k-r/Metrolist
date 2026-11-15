@@ -117,6 +117,7 @@ class AudioPlayer(
     }
 
     private var currentVolume = 1.0f
+    private var fadeGain = 1.0f
     private var normalizationGain = 1f
     private var audioOutputEnabled = true
     private var currentPlaybackPitch = 1f
@@ -627,7 +628,15 @@ class AudioPlayer(
 
     fun getVolume(): Float = synchronized(preparationLock) { renderer?.getVolume() ?: effectiveVolume() }
 
-    private fun effectiveVolume(): Float = if (audioOutputEnabled) currentVolume else 0f
+    /** Pause/resume fade, multiplied into the output without touching the requested volume. */
+    fun setFadeGain(gain: Float) {
+        synchronized(preparationLock) {
+            fadeGain = gain.coerceIn(0f, 1f)
+            renderer?.setVolume(effectiveVolume())
+        }
+    }
+
+    private fun effectiveVolume(): Float = if (audioOutputEnabled) currentVolume * fadeGain else 0f
 
     fun setPreferredDevice(device: Any?) {
         renderer?.setPreferredDevice(device)

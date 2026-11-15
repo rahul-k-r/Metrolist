@@ -29,6 +29,7 @@ import com.metrolist.shared.model.MlxDocument
 import com.metrolist.shared.model.MlxSong
 import com.metrolist.shared.model.WordTimestamp
 import com.metrolist.shared.model.lyricsProviderLabel
+import com.metrolist.shared.settings.ProviderLyricsOffsets
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.state.GlobalYouTube
 import com.metrolist.shared.utils.getSystemLanguage
@@ -714,7 +715,12 @@ class LyricsRepository(
             preview = lyricsResultPreview(LyricsUtils.parseLyrics(lyrics)),
         )
 
-    suspend fun getLyricsOffset(videoId: String): Int = savedLyricsOffset(videoId)
+    suspend fun getLyricsOffset(
+        videoId: String,
+        provider: String? = null,
+    ): Int =
+        provider?.let { ProviderLyricsOffsets.get(Settings.shared.providerLyricsOffsetsJson, videoId, it) }
+            ?: savedLyricsOffset(videoId)
 
     suspend fun getVideoSpecificLyrics(
         videoId: String,
@@ -765,9 +771,15 @@ class LyricsRepository(
     suspend fun setLyricsOffset(
         videoId: String,
         offsetMs: Int,
+        provider: String? = null,
     ): Boolean {
         val dao = databaseDao ?: return false
-        dao.setLyricsOffset(videoId, offsetMs)
+        if (provider != null) {
+            Settings.shared.providerLyricsOffsetsJson =
+                ProviderLyricsOffsets.set(Settings.shared.providerLyricsOffsetsJson, videoId, provider, offsetMs)
+        } else {
+            dao.setLyricsOffset(videoId, offsetMs)
+        }
         return true
     }
 

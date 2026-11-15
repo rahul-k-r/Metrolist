@@ -37,6 +37,7 @@ import com.metrolist.shared.youtube.playback.sabrAudioPlaybackChunks
 import com.metrolist.shared.youtube.playback.toPlaybackLogDetails
 import com.metrolist.shared.youtube.playback.withClientPlaybackNonce
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -125,6 +126,8 @@ class MusicPlayer(
     }
 
     private var audioPlayer: AudioPlayer
+    private val pauseFade = PlayPauseFadeRamp()
+    private var pauseFadeJob: Job? = null
     private var nextPlayer: AudioPlayer? = null
     private var primaryVideoId: String? = null
     private var nextVideoId: String? = null
@@ -880,9 +883,53 @@ class MusicPlayer(
         )
         synchronized(playerLock) {
             if (pendingPlaybackIntent != null) pendingPlaybackIntent = false
-            audioPlayer.pause()
-            if (isCrossfading) nextPlayer?.pause()
+            val player = audioPlayer
+            if (playPauseFadeApplies(player)) {
+                // The pause lands when the ramp ends, unless a resume reverses it first.
+                runPauseFade(player, 0f) {
+                    synchronized(playerLock) {
+                        if (audioPlayer !== player) return@synchronized
+                        player.pause()
+                        if (isCrossfading) nextPlayer?.pause()
+                        player.setFadeGain(1f)
+                    }
+                }
+            } else {
+                cancelPauseFade(audioPlayer)
+                audioPlayer.pause()
+                if (isCrossfading) nextPlayer?.pause()
+            }
         }
+    }
+
+    private fun playPauseFadeApplies(player: AudioPlayer): Boolean =
+        Settings.shared.playPauseFadeEnabled && !isCrossfading && player.isPlaying()
+
+    private fun cancelPauseFade(player: AudioPlayer) {
+        pauseFadeJob?.cancel()
+        pauseFadeJob = null
+        pauseFade.reset(1f)
+        player.setFadeGain(1f)
+    }
+
+    private fun runPauseFade(
+        player: AudioPlayer,
+        target: Float,
+        onDone: () -> Unit,
+    ) {
+        pauseFadeJob?.cancel()
+        val clock = { TimeUnit.NANOSECONDS.toMillis(System.nanoTime()) }
+        pauseFade.fadeTo(target, clock(), Settings.shared.playPauseFadeDurationMs.toLong())
+        pauseFadeJob =
+            scope.launch {
+                while (isActive) {
+                    val now = clock()
+                    player.setFadeGain(pauseFade.gainAt(now))
+                    if (pauseFade.isDone(now)) break
+                    delay(PAUSE_FADE_TICK_MS)
+                }
+                if (isActive) onDone()
+            }
     }
 
     fun resume() {
@@ -895,8 +942,16 @@ class MusicPlayer(
         )
         synchronized(playerLock) {
             if (pendingPlaybackIntent != null) pendingPlaybackIntent = true
-            audioPlayer.resume()
+            val player = audioPlayer
+            val fadeIn = Settings.shared.playPauseFadeEnabled && !isCrossfading
+            val reversingFadeOut = pauseFadeJob?.isActive == true && pauseFade.target == 0f
+            if (fadeIn && !reversingFadeOut) {
+                pauseFade.reset(0f)
+                player.setFadeGain(0f)
+            }
+            player.resume()
             if (isCrossfading && !nextStartsPaused) nextPlayer?.resume()
+            if (fadeIn) runPauseFade(player, 1f) {} else cancelPauseFade(player)
         }
     }
 
@@ -1941,6 +1996,7 @@ class MusicPlayer(
 
     companion object {
         private const val STALL_INDICATOR_MS = 1_000L
+        private const val PAUSE_FADE_TICK_MS = 8L
         private const val DEFAULT_HTTP_RANGE_CHUNK_BYTES = 1_048_576L
         private const val RELEASE_STATS_TIMEOUT_MS = 1_000L
         private const val RECOVERY_SEEK_TIMEOUT_MS = 15_000L

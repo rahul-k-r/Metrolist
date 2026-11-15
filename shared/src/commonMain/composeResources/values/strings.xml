@@ -857,6 +857,12 @@
     <string name="settings_sound">Sound</string>
     <!-- Translators: Supporting text beneath the track transition fade option in the settings. -->
     <string name="track_transition_fade_desc">Fade smoothly between the current and next track</string>
+    <!-- Translators: Switch title. Music fades out when paused and fades in when resumed. -->
+    <string name="play_pause_fade">Fade on pause and play</string>
+    <!-- Translators: Switch description for the pause and play fade. -->
+    <string name="play_pause_fade_desc">Fade the music out when pausing and in when resuming</string>
+    <!-- Translators: Slider title for how long the pause and play fade lasts. -->
+    <string name="play_pause_fade_duration">Pause and play fade length</string>
     <!-- Translators: Heading for content in the settings. -->
     <string name="settings_content_title">Content</string>
     <!-- Translators: Supporting text beneath the content option in the settings. -->
@@ -4915,6 +4921,28 @@
     <string name="lyrics_share_scroll_options">Scroll below the preview to customize your image.</string>
     <string name="connected_devices">Connected devices</string>
     <string name="available_devices">Available devices</string>
+    <!-- Translators: Section title in the device picker for copying app settings between connected devices. -->
+    <string name="sync_settings_title">Sync settings</string>
+    <!-- Translators: Button. Sends this device's settings to the selected connected device. -->
+    <string name="sync_settings_push">Send to device</string>
+    <!-- Translators: Button. Fetches the selected connected device's settings and applies them here. -->
+    <string name="sync_settings_pull">Get from device</string>
+    <!-- Translators: Hint under the sync settings buttons. -->
+    <string name="sync_settings_hint">Copies settings once. Accounts, sign-ins and window options stay on each device.</string>
+    <!-- Translators: Status after settings were applied. %1$d is the number of settings that changed. -->
+    <string name="sync_settings_applied">Updated %1$d settings</string>
+    <!-- Translators: Status after settings were sent to another device that still has to accept them. -->
+    <string name="sync_settings_sent">Sent. Open Connected devices on the other device and accept to apply.</string>
+    <!-- Translators: Status when settings could not be exchanged with the device. -->
+    <string name="sync_settings_failed">Could not sync with that device</string>
+    <!-- Translators: Dialog title. %1$s is the name of the device sending its settings. -->
+    <string name="sync_settings_incoming_title">Apply settings from %1$s?</string>
+    <!-- Translators: Dialog text. %1$d is how many settings would change on this device. -->
+    <string name="sync_settings_incoming_body">%1$d settings on this device will change.</string>
+    <!-- Translators: Dialog button that applies the received settings. -->
+    <string name="sync_settings_apply">Apply</string>
+    <!-- Translators: Dialog button that dismisses received settings without applying them. -->
+    <string name="sync_settings_decline">Not now</string>
     <!-- Translators: Row in the device picker that moves playback back to the device you are holding. -->
     <string name="this_device">This device</string>
     <string name="no_device_connected">No device connected</string>

@@ -30,6 +30,9 @@ object DcMessageTypes {
     const val AUTH_RESULT = "auth_result"
     const val DEVICE_INFO = "device_info"
     const val PLAYBACK = "playback"
+
+    /** App data (marks, settings). Only sent to peers that advertised [DeviceInfoPayload.supportsDataSync]. */
+    const val DATA = "data"
     const val PING = "ping"
     const val PONG = "pong"
     const val BYE = "bye"
@@ -44,6 +47,7 @@ object DcMessageTypes {
             AUTH_RESULT,
             DEVICE_INFO,
             PLAYBACK,
+            DATA,
             PING,
             PONG,
             BYE,
@@ -126,6 +130,17 @@ data class DeviceInfoPayload(
     val supportsPlaybackClock: Boolean = false,
     val supportsPlaybackPitch: Boolean = false,
     val deviceType: String = DeviceConnectDeviceType.UNKNOWN.wireName,
+    /** Peers without this flag treat a [DcMessageTypes.DATA] frame as a protocol violation, so it gates every send. */
+    val supportsDataSync: Boolean = false,
+)
+
+@Serializable
+internal data class DataChunkPayload(
+    val messageId: String,
+    val index: Int,
+    val count: Int,
+    val totalBytes: Int,
+    val data: String,
 )
 
 @Serializable
@@ -172,6 +187,7 @@ fun decodePayload(
         DcMessageTypes.AUTH_RESULT -> DcJson.decodeFromString<AuthResultPayload>(json)
         DcMessageTypes.DEVICE_INFO -> DcJson.decodeFromString<DeviceInfoPayload>(json)
         DcMessageTypes.PLAYBACK -> DcJson.decodeFromString<PlaybackChunkPayload>(json)
+        DcMessageTypes.DATA -> DcJson.decodeFromString<DataChunkPayload>(json)
         DcMessageTypes.PING -> DcJson.decodeFromString<PingPayload>(json)
         DcMessageTypes.PONG -> DcJson.decodeFromString<PongPayload>(json)
         DcMessageTypes.BYE -> DcJson.decodeFromString<ByePayload>(json)

@@ -5,7 +5,9 @@ import com.metrolist.shared.playback.ffmpeg.FFmpegFrameGrabber
 import com.metrolist.shared.playback.ffmpeg.Frame
 import com.metrolist.shared.playback.ffmpeg.HttpRangeInputStream
 import com.metrolist.shared.playback.ffmpeg.LoopingVideoInput
+import com.metrolist.shared.playback.ffmpeg.FfmpegWorker
 import com.metrolist.shared.playback.ffmpeg.PlaybackPositionInput
+import com.metrolist.shared.playback.ffmpeg.startFfmpegWorker
 import com.metrolist.shared.playback.ffmpeg.isTrustedDirectMediaEndpoint
 import com.metrolist.shared.utils.Logger
 import com.metrolist.shared.youtube.playback.PlaybackEventKind
@@ -37,9 +39,6 @@ import org.jetbrains.skia.ColorSpace
 import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.ImageInfo
 import java.io.InputStream
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 
@@ -184,7 +183,7 @@ actual class VideoPlayer actual constructor(
         }
     }
 
-    private var decodeThread: DecodeRun? = null
+    private var decodeThread: FfmpegWorker? = null
 
     @Volatile
     private var targetWidth = 0
@@ -594,7 +593,7 @@ actual class VideoPlayer actual constructor(
             isRunning = true
             isPaused = startPaused
             decodeThread =
-                startDecodeRun {
+                startFfmpegWorker("VideoDecode-Thread", Thread.NORM_PRIORITY + 1) {
                     var initialVideoFrameRendered = false
                     try {
                         val startMs = currentPositionProvider()
@@ -1212,54 +1211,6 @@ internal fun restartLoop(grabber: FFmpegFrameGrabber): Frame? {
     if (grabber.mediaInputStream != null) return null
     grabber.restart()
     return grabber.grabFrame(false, true, false, false, false)
-}
-
-/**
- * One decode loop running on a pooled worker. The workers never exit: the bundled ffmpeg natives register a
- * thread-exit hook that frees memory it did not allocate, so every thread that has touched ffmpeg and then ends
- * aborts the process with heap corruption (0xc0000374). Per-session threads hit that on every video stop.
- */
-internal class DecodeRun {
-    private val done = CountDownLatch(1)
-    private var worker: Thread? = null
-
-    val isAlive: Boolean get() = done.count > 0
-
-    @Synchronized
-    fun interrupt() {
-        worker?.interrupt()
-    }
-
-    fun join() = done.await()
-
-    internal fun runOn(
-        thread: Thread,
-        body: () -> Unit,
-    ) {
-        synchronized(this) { worker = thread }
-        try {
-            body()
-        } finally {
-            synchronized(this) { worker = null }
-            // A stale interrupt must not leak into the next loop that reuses this worker.
-            Thread.interrupted()
-            done.countDown()
-        }
-    }
-}
-
-private val decodePool =
-    ThreadPoolExecutor(4, 4, 0L, TimeUnit.SECONDS, LinkedBlockingQueue()) { task ->
-        Thread(task, "VideoDecode-Thread").apply {
-            priority = Thread.NORM_PRIORITY + 1
-            isDaemon = true
-        }
-    }
-
-internal fun startDecodeRun(body: () -> Unit): DecodeRun {
-    val run = DecodeRun()
-    decodePool.execute { run.runOn(Thread.currentThread(), body) }
-    return run
 }
 
 internal fun nextLoadJobId(current: Long): Long = if (current == Long.MAX_VALUE) 1L else current + 1L

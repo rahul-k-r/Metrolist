@@ -36,9 +36,9 @@ class AudioPlayer(
     private var preparationGeneration = 0L
     private var preparingInputStream: InputStream? = null
 
-    private var decodeThread: Thread? = null
-    private var renderThread: Thread? = null
-    private var seekThread: Thread? = null
+    private var decodeThread: FfmpegWorker? = null
+    private var renderThread: FfmpegWorker? = null
+    private var seekThread: FfmpegWorker? = null
 
     @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
     private val seekLock = Object()
@@ -274,7 +274,7 @@ class AudioPlayer(
         val playbackQueue = frameQueue
 
         decodeThread =
-            Thread {
+            startFfmpegWorker("AudioDecoder-Thread", Thread.NORM_PRIORITY + 2) {
                 try {
                     while (isRunning && decoder === d) {
                         val decodeSeekVersion = seekRequestVersion
@@ -310,10 +310,10 @@ class AudioPlayer(
                                 },
                             )
                         if (reachedEnd) {
-                            if (decoder !== d) return@Thread
+                            if (decoder !== d) return@startFfmpegWorker
                             d.streamFailure?.let { error ->
                                 reportPlaybackFailure(error, AudioPlayerFailureSource.STREAM)
-                                return@Thread
+                                return@startFfmpegWorker
                             }
                             enqueueDecodedFrame(
                                 isCurrent = { isRunning && decoder === d && seekRequestVersion == decodeSeekVersion },
@@ -338,14 +338,10 @@ class AudioPlayer(
                         )
                     }
                 }
-            }.apply {
-                priority = Thread.NORM_PRIORITY + 2
-                name = "AudioDecoder-Thread"
-                start()
             }
 
         renderThread =
-            Thread {
+            startFfmpegWorker("AudioRenderer-Thread", Thread.NORM_PRIORITY + 2) {
                 var silenceSinceNs = 0L
                 var nextSilenceSeekNs = 0L
                 var silenceSeekVersion = seekRequestVersion
@@ -414,10 +410,6 @@ class AudioPlayer(
                         signalStateChanged()
                     }
                 }
-            }.apply {
-                priority = Thread.NORM_PRIORITY + 2
-                name = "AudioRenderer-Thread"
-                start()
             }
     }
 
@@ -514,7 +506,7 @@ class AudioPlayer(
                 if (seekThread?.isAlive != true) {
                     isSeeking = true
                     seekThread =
-                        Thread {
+                        startFfmpegWorker("AudioSeek-Thread") {
                             try {
                                 while (!Thread.currentThread().isInterrupted) {
                                     var shouldExit = false
@@ -530,14 +522,14 @@ class AudioPlayer(
                                         }
                                     if (shouldExit) {
                                         signalStateChanged()
-                                        return@Thread
+                                        return@startFfmpegWorker
                                     }
                                     val (target, requestVersion) = request
-                                    if (decoder !== d) return@Thread
+                                    if (decoder !== d) return@startFfmpegWorker
                                     playbackQueue.clear()
                                     r?.flush()
                                     d.seekTo(target, managePlaybackPosition = false)
-                                    if (decoder !== d) return@Thread
+                                    if (decoder !== d) return@startFfmpegWorker
                                     playbackQueue.clear()
                                     r?.flush()
                                     synchronized(seekLock) {
@@ -580,10 +572,6 @@ class AudioPlayer(
                                 }
                                 signalStateChanged()
                             }
-                        }.apply {
-                            name = "AudioSeek-Thread"
-                            isDaemon = true
-                            start()
                         }
                 }
             }
@@ -724,11 +712,7 @@ class AudioPlayer(
 
     fun closeAsync() {
         if (!beginClose()) return
-        Thread(::finishClose).apply {
-            name = "AudioClose-Thread"
-            isDaemon = true
-            start()
-        }
+        startFfmpegWorker("AudioClose-Thread", body = ::finishClose)
     }
 
     private fun beginClose(): Boolean {
@@ -772,7 +756,7 @@ class AudioPlayer(
         try {
             val deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(1)
             listOfNotNull(activeSeek, activeDecoder, activeRenderer).forEach { thread ->
-                if (thread !== Thread.currentThread()) {
+                if (!thread.isCurrent()) {
                     val remainingMillis = TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime()).coerceAtLeast(1L)
                     thread.join(remainingMillis)
                 }
@@ -786,14 +770,10 @@ class AudioPlayer(
             currentRenderer?.close()
             currentDecoder?.close()
         } else {
-            Thread {
+            startFfmpegWorker("AudioCleanup-Thread") {
                 activeWorkers.forEach { runCatching { it.join() } }
                 runCatching { currentRenderer?.close() }
                 runCatching { currentDecoder?.close() }
-            }.apply {
-                name = "AudioCleanup-Thread"
-                isDaemon = true
-                start()
             }
         }
 

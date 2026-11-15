@@ -1,5 +1,6 @@
 package com.metrolist.shared.playback
 
+import com.metrolist.shared.playback.ffmpeg.FfmpegWorker
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.skia.Image
 import org.jetbrains.skia.Picture
@@ -71,7 +72,7 @@ class VideoDisposalTest {
                     assertTrue(player.load(fixture.path) { 0L })
                     player.play(startPaused = iteration % 2 == 0)
                     val frame = assertNotNull(frames.poll(10, TimeUnit.SECONDS))
-                    val decoder = field("decodeThread").get(player) as Thread
+                    val decoder = field("decodeThread").get(player) as FfmpegWorker
                     val draw =
                         executor.submit<Picture> {
                             PictureRecorder().use { recorder ->

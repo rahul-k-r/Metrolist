@@ -1,5 +1,7 @@
 package com.metrolist.shared.playback
 
+import com.metrolist.shared.playback.ffmpeg.FfmpegWorker
+import com.metrolist.shared.playback.ffmpeg.startFfmpegWorker
 import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.util.concurrent.CountDownLatch
@@ -25,7 +27,7 @@ class VideoDecodeLifecycleTest {
         val executor = Executors.newSingleThreadExecutor()
         val player = VideoPlayer(onFrame = {}, onEnded = {})
         val decoder =
-            Thread {
+            startFfmpegWorker("test-decoder") {
                 entered.countDown()
                 while (release.count > 0) {
                     try {
@@ -34,9 +36,6 @@ class VideoDecodeLifecycleTest {
                         // Models a native read that does not honor Java interruption.
                     }
                 }
-            }.apply {
-                isDaemon = true
-                start()
             }
         try {
             assertTrue(entered.await(5, TimeUnit.SECONDS))
@@ -137,7 +136,7 @@ class VideoDecodeLifecycleTest {
                 VideoPlayer::class.java
                     .getDeclaredField("decodeThread")
                     .apply { isAccessible = true }
-                    .get(player) as Thread
+                    .get(player) as FfmpegWorker
 
             player.setTargetSize(64, 36)
             player.seekTo(400)

@@ -222,11 +222,13 @@ internal class AndroidDeviceConnectPlayback(
                             playback.finite,
                         )
                         queue.setTitle(playback.title)
-                        repeatMode.value = playback.repeatMode.toPlayerRepeatMode()
                         if (player.queueSnapshots.value != playback.queue) player.restoreQueue(playback.queue)
                         shuffleModeEnabled.value = playback.queue.isShuffled
                         syncTargetLoaded = false
                     }
+                    // Every update, not only queue changes: a repeat-only change keeps the queue identical, and a stale
+                    // value here made the next cycle press resend the mode the target already had.
+                    if (playback != null) repeatMode.value = playback.repeatMode.toPlayerRepeatMode()
                     controllerPlayback = playback
                     player.setControllerPlayback(playback)
                     if (playback !=
@@ -255,7 +257,10 @@ internal class AndroidDeviceConnectPlayback(
 
             override suspend fun setVolume(volume: Float) =
                 withContext(Dispatchers.Main.immediate) {
-                    if (!playbackReleased) player.setVolume(volume)
+                    if (!playbackReleased) {
+                        player.setVolume(volume)
+                        Settings.shared.volume = volume.coerceIn(0f, 1f)
+                    }
                 }
 
             override suspend fun setSpeed(speed: Float) =

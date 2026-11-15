@@ -7,6 +7,7 @@ import com.metrolist.shared.api.musicvideo.MusicVideoResolver
 import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.deviceconnect.DcLocalPlaybackState
 import com.metrolist.shared.deviceconnect.DcPlaybackSnapshot
+import com.metrolist.shared.deviceconnect.DcRepeatMode
 import com.metrolist.shared.model.SearchResultPage
 import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.playback.MusicQueue
@@ -45,6 +46,87 @@ class AndroidDeviceConnectPlaybackTest {
 
     @Test
     fun releasedPlaybackCannotPrepareOrCommitAfterResolution() = staleResolution(release = true)
+
+    @Test
+    fun controllerShowsEachRepeatChangeEvenWhenTheQueueIsUnchanged() =
+        runTest {
+            Settings.replaceSharedForTest(Settings(MapSettings()))
+            Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+            val context = RuntimeEnvironment.getApplication()
+            val database = Room.inMemoryDatabaseBuilder(context, MusicDatabase::class.java).setDriver(AndroidSQLiteDriver()).build()
+            try {
+                val song = SongItem("remote", "Remote", null, emptyList(), null)
+                val queueState = MutableStateFlow(MusicQueueSnapshot())
+                val currentSong = MutableStateFlow<SongItem?>(null)
+                val player =
+                    Proxy.newProxyInstance(
+                        AndroidPlaybackPlayer::class.java.classLoader,
+                        arrayOf(AndroidPlaybackPlayer::class.java),
+                    ) { _, method, args ->
+                        when (method.name) {
+                            "getCurrentSong" -> currentSong
+                            "getCurrentPlaybackResource" -> MutableStateFlow<PlaybackResource?>(null)
+                            "getWantsPlaybackState" -> MutableStateFlow(false)
+                            "queueSnapshot" -> queueState.value
+                            "getQueueSnapshots" -> queueState
+                            "restoreQueue" -> {
+                                queueState.value = args!![0] as MusicQueueSnapshot
+                                Unit
+                            }
+                            "isShuffleEnabled" -> false
+                            "cancelNext", "setPlaybackSpeed", "pause", "setControllerPlayback" -> Unit
+                            else -> error("Unexpected player call: ${method.name}")
+                        }
+                    } as AndroidPlaybackPlayer
+                val repeat = MutableStateFlow(Player.REPEAT_MODE_OFF)
+                val shuffle = MutableStateFlow(false)
+                val queue = AndroidQueueCoordinator(context, player, backgroundScope, repeat, shuffle, {}, {})
+                val resolver = MusicVideoResolver(search = { _, _ -> SearchResultPage(emptyList()) })
+                val video = AndroidVideoModeController(context, player, backgroundScope, resolver, { it() }, { _, _ -> null }, {})
+                val transitions =
+                    AndroidQueueTransitions(
+                        player,
+                        backgroundScope,
+                        AudioCacheManager(context, database),
+                        resolver,
+                        queue,
+                        { _, _ -> null },
+                        { _, _, _, _ -> },
+                        {},
+                        episodeResumePosition = { _, _ -> 0L },
+                    )
+                queue.transitions = transitions
+                val playback =
+                    AndroidDeviceConnectPlayback(
+                        context,
+                        player,
+                        queue,
+                        video,
+                        transitions,
+                        ScrobbleManager(backgroundScope),
+                        AndroidListeningHistory(player, backgroundScope, { _, _ -> }, writerScope = backgroundScope),
+                        repeat,
+                        shuffle,
+                        fetchPlaybackResource = { _, _ -> null },
+                        isCasting = { false },
+                        onSave = {},
+                        onDiscordUpdate = {},
+                    )
+                val desiredQueue = MusicQueue().apply { setQueue(listOf(song)) }.snapshot()
+                val base = DcLocalPlaybackState(queue = desiredQueue)
+
+                playback.port.setControllerPlayback(base.copy(repeatMode = DcRepeatMode.ALL))
+                assertEquals(Player.REPEAT_MODE_ALL, repeat.value)
+                playback.port.setControllerPlayback(base.copy(repeatMode = DcRepeatMode.ONE))
+                assertEquals(Player.REPEAT_MODE_ONE, repeat.value)
+                playback.port.setControllerPlayback(base.copy(repeatMode = DcRepeatMode.OFF))
+                assertEquals(Player.REPEAT_MODE_OFF, repeat.value)
+            } finally {
+                database.close()
+                Dispatchers.resetMain()
+                Settings.replaceSharedForTest(null)
+            }
+        }
 
     private fun staleResolution(release: Boolean) =
         runTest {

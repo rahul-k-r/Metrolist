@@ -696,6 +696,8 @@ class DeviceConnectRemote(
         command: DcPlaybackCommand,
         expectedQueue: Long,
     ) {
+        // Fold in local changes no ticker/trigger observed yet; reducing a stale canonical would re-apply an old position.
+        if (sender != localDeviceId() && applyJob?.isActive != true) observeLocal(false)
         val current = canonical ?: return
         if ((command.isQueueIndexed() && expectedQueue != current.queueRevision) ||
             (command.action == DcPlaybackAction.REPLACE_CURRENT && command.expectedTrackRevision != current.trackRevision)

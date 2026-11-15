@@ -157,6 +157,7 @@ internal fun reduceDcPlayback(
     when (command.action) {
         DcPlaybackAction.PLAY, DcPlaybackAction.PAUSE, DcPlaybackAction.SEEK,
         DcPlaybackAction.REPEAT, DcPlaybackAction.SPEED, DcPlaybackAction.PITCH, DcPlaybackAction.VOLUME,
+        DcPlaybackAction.VIDEO_MODE,
         -> {
             return null
         }

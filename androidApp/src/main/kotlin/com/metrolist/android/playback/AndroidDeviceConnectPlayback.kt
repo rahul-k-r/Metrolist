@@ -250,6 +250,11 @@ internal class AndroidDeviceConnectPlayback(
                     if (!playbackReleased) player.setAudioOutputEnabled(enabled)
                 }
 
+            override suspend fun setVideoMode(enabled: Boolean?) =
+                withContext(Dispatchers.Main.immediate) {
+                    if (!playbackReleased) video.setVideoMode(enabled ?: !video.isVideoViewerVisible.value)
+                }
+
             override suspend fun seekTo(positionMs: Long) =
                 withContext(Dispatchers.Main.immediate) {
                     if (!playbackReleased) player.seekTo(positionMs, PlaybackSeekSource("device_connect"))

@@ -713,6 +713,11 @@ class DeviceConnectRemote(
         // Fold in local changes no ticker/trigger observed yet; reducing a stale canonical would re-apply an old position.
         if (sender != localDeviceId() && applyJob?.isActive != true) observeLocal(false)
         val current = canonical ?: return
+        if (command.action == DcPlaybackAction.VIDEO_MODE) {
+            // Not part of the shared snapshot: it is a presentation choice of whichever device actually plays.
+            port?.setVideoMode(command.enabled)
+            return
+        }
         if ((command.isQueueIndexed() && expectedQueue != current.queueRevision) ||
             (command.action == DcPlaybackAction.REPLACE_CURRENT && command.expectedTrackRevision != current.trackRevision)
         ) {

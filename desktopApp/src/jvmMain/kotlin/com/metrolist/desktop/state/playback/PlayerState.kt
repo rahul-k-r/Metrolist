@@ -612,6 +612,16 @@ object PlayerState {
                     updateVideoAudioRouting()
                 }
 
+            override suspend fun setVideoMode(enabled: Boolean?) =
+                withContext(Dispatchers.Main) {
+                    val showing = UiState.showVideoViewer
+                    when (enabled ?: !showing) {
+                        showing -> Unit
+                        true -> requestVideoMode()
+                        false -> closeVideoViewer()
+                    }
+                }
+
             override suspend fun extendQueue(shouldCommit: () -> Boolean): DcLocalPlaybackState? {
                 if (!shouldCommit()) return null
                 withContext(Dispatchers.Main) {
@@ -905,7 +915,11 @@ object PlayerState {
     }
 
     fun requestVideoMode() {
-        if (deviceConnect.isFollowing || !Settings.shared.musicVideoPlaybackEnabled) return
+        if (deviceConnect.isFollowing) {
+            deviceConnect.intercept(DcPlaybackCommand(DcPlaybackAction.VIDEO_MODE))
+            return
+        }
+        if (!Settings.shared.musicVideoPlaybackEnabled) return
         val song = currentTrack ?: return
         if (song.id.startsWith("local_")) return
         if (

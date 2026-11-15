@@ -29,6 +29,9 @@ enum class DcPlaybackAction {
     VOLUME,
     RESTORE_QUEUE,
     REPLACE_CURRENT,
+
+    /** Switch the target between audio and video. [DcPlaybackCommand.enabled] is the wanted mode, null toggles. */
+    VIDEO_MODE,
 }
 
 @Serializable
@@ -131,6 +134,9 @@ interface DeviceConnectPlaybackPort {
     suspend fun setVolume(volume: Float)
 
     suspend fun setAudioOutputEnabled(enabled: Boolean)
+
+    /** A controller asked this target to show video ([enabled] true), audio only (false), or to flip (null). */
+    suspend fun setVideoMode(enabled: Boolean?) = Unit
 
     suspend fun extendQueue(shouldCommit: () -> Boolean): DcLocalPlaybackState? = null
 

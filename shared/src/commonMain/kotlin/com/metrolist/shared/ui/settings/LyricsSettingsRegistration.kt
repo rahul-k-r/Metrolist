@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.metrolist.shared.api.lyrics.AiProviderPreset
 import com.metrolist.shared.api.lyrics.AiProviderPresets
 import com.metrolist.shared.generated.resources.*
 import com.metrolist.shared.settings.LyricsTextSizeRange
@@ -278,6 +279,20 @@ internal fun SettingsUiRegistryBuilder.registerLyricsSettings(host: SharedSettin
                 SettingsChoice("prefer_more", stringResource(Res.string.ai_deepl_formality_more)),
                 SettingsChoice("prefer_less", stringResource(Res.string.ai_deepl_formality_less)),
             )
+        fun selectProvider(selected: AiProviderPreset) {
+            settings.setLyricsAiApiKey(provider, settings.lyricsAiApiKeyFor(provider))
+            settings.lyricsAiProvider = selected.id
+            if (selected.id != "OpenRouter") settings.lyricsOpenRouterOAuthSession = ""
+            if (selected.endpoint.isNotBlank()) settings.lyricsAiBaseUrl = selected.endpoint
+            settings.lyricsAiModel = selected.defaultModel
+            settings.lyricsAiDetectorModel = ""
+            if (isDirectLyricsTranslationProvider(selected.id)) settings.lyricsAiTranslationMode = "Literal"
+        }
+        val engineChoices =
+            listOf(
+                SettingsChoice("standard", stringResource(Res.string.translation_engine_standard)),
+                SettingsChoice("ai", stringResource(Res.string.translation_engine_ai)),
+            )
         customPage(
             id = SettingsPageId.LYRICS_AI_SETUP,
             title = stringResource(Res.string.ai_setup_title),
@@ -292,13 +307,29 @@ internal fun SettingsUiRegistryBuilder.registerLyricsSettings(host: SharedSettin
             icon = MetrolistIcons.Outlined.Translate,
             tone = SettingsTone.ROSE,
         ) {
-            group("setup", stringResource(Res.string.ai_setup_title)) {
-                navigation(
-                    "aiSetup",
-                    stringResource(Res.string.ai_setup_title),
-                    SettingsPageId.LYRICS_AI_SETUP,
-                    description = stringResource(Res.string.ai_setup_description),
-                )
+            group("engine", stringResource(Res.string.translation_engine)) {
+                choice(
+                    id = "engine",
+                    title = stringResource(Res.string.translation_engine),
+                    description = stringResource(Res.string.translation_engine_description),
+                    valueLabel = engineChoices.first { it.id == if (directProvider) "standard" else "ai" }.label,
+                    choices = engineChoices,
+                    selectedChoiceId = if (directProvider) "standard" else "ai",
+                ) { selected ->
+                    val wanted = if (selected == "standard") "Google Translate" else "OpenRouter"
+                    val alreadyThere = if (selected == "standard") directProvider else !directProvider
+                    if (!alreadyThere) AiProviderPresets.find(wanted)?.let(::selectProvider)
+                }
+            }
+            if (!directProvider) {
+                group("setup", stringResource(Res.string.ai_setup_title)) {
+                    navigation(
+                        "aiSetup",
+                        stringResource(Res.string.ai_setup_title),
+                        SettingsPageId.LYRICS_AI_SETUP,
+                        description = stringResource(Res.string.ai_setup_description),
+                    )
+                }
             }
             group("runtime", stringResource(Res.string.ai_runtime)) {
                 switch(
@@ -348,13 +379,7 @@ internal fun SettingsUiRegistryBuilder.registerLyricsSettings(host: SharedSettin
                     description = stringResource(Res.string.settings_translation_provider_summary),
                 ) { onSettingValueChanged ->
                     AiProviderPicker(preset) { selected ->
-                        settings.setLyricsAiApiKey(provider, settings.lyricsAiApiKeyFor(provider))
-                        settings.lyricsAiProvider = selected.id
-                        if (selected.id != "OpenRouter") settings.lyricsOpenRouterOAuthSession = ""
-                        if (selected.endpoint.isNotBlank()) settings.lyricsAiBaseUrl = selected.endpoint
-                        settings.lyricsAiModel = selected.defaultModel
-                        settings.lyricsAiDetectorModel = ""
-                        if (isDirectLyricsTranslationProvider(selected.id)) settings.lyricsAiTranslationMode = "Literal"
+                        selectProvider(selected)
                         onSettingValueChanged()
                     }
                 }

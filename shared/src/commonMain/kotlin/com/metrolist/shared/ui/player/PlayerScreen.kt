@@ -554,6 +554,8 @@ fun PlayerScreen(
             CastState(),
         )
     }
+    val playingOnDevice by playerConnection?.playingOnDevice?.collectWhilePlayerActive(isPlayerContentVisible && isScreenVisible)
+        ?: remember { mutableStateOf<String?>(null) }
     val isPlaying =
         uiState.isPlaying ||
             (wantsPlayback && !castState.isConnected && (isPlaybackLoading || playbackResource == null))
@@ -1628,6 +1630,7 @@ fun PlayerScreen(
                                                         if (!isTv && !isListenTogetherGuest && platform.supportsCasting &&
                                                             Settings.shared.isPlayerCastButtonVisible
                                                         ) {
+                                                            playingOnDevice?.let { PlayingOnPill(it, Modifier.playerControlBlend(), maxWidth = 120.dp) }
                                                             FilledIconButton(
                                                                 onClick = {
                                                                     hapticManager.perform(HapticEvent.PRESS)

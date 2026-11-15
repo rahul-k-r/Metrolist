@@ -8,6 +8,7 @@ import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.settings.MusicVideoQuality
 import com.metrolist.shared.state.SongLikeState
 import com.metrolist.shared.youtube.playback.PlaybackResource
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 interface PlayerSession {
@@ -41,6 +42,9 @@ interface PlayerSession {
     val sleepTimerState: StateFlow<SleepTimerState>
     val castDevices: StateFlow<List<CastDevice>>
     val castState: StateFlow<CastState>
+
+    /** Name of the remote device audio is routed to (cast or Device Connect), or null when playing here. */
+    val playingOnDevice: StateFlow<String?> get() = NoPlayingOnDevice
 
     fun currentPositionMs(): Long
 
@@ -139,5 +143,7 @@ interface PlayerSession {
 
     fun disconnectCast()
 }
+
+val NoPlayingOnDevice: StateFlow<String?> = MutableStateFlow<String?>(null)
 
 val LocalPlayerSession = staticCompositionLocalOf<PlayerSession?> { null }

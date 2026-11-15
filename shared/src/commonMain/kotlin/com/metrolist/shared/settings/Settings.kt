@@ -467,7 +467,7 @@ class Settings(
     var canvasEnabledSources by preference(CanvasEnabledSourcesKey, "")
     var lyricsShowTranslations by preference(false)
     var lyricsAiTranslationEnabled by preference(false)
-    var lyricsAiProvider by preference("OpenRouter")
+    var lyricsAiProvider by preference("Google Translate")
     var lyricsAiApiKey by preference("")
     var lyricsOpenRouterOAuthKey by preference(LyricsOpenRouterOAuthKey, "")
     var lyricsOpenRouterOAuthSession by preference(LyricsOpenRouterOAuthSessionKey, "")
@@ -877,6 +877,10 @@ class Settings(
     /** When set, a tray click pauses or resumes playback instead of showing or hiding the window. */
     var desktopTrayClickPlayPause by preference(false)
     var startMinimizedToTray by preference(false)
+
+    /** Which side panels were open in the desktop expanded player, restored the next time it opens. */
+    var expandedPlayerShowQueue by preference(false)
+    var expandedPlayerShowLyrics by preference(false)
 
     /** Intent only; the desktop app mirrors it into the OS login-item registration. */
     var startWithSystem by preference(false)
@@ -1368,6 +1372,8 @@ class Settings(
                 setOf(
                     "startWithSystem",
                     "startMinimizedToTray",
+                    "expandedPlayerShowQueue",
+                    "expandedPlayerShowLyrics",
                     "minimizeToTrayOnClose",
                     "desktopTrayToggleOnClick",
                     "desktopTrayClickPlayPause",

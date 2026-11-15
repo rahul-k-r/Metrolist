@@ -2970,7 +2970,12 @@
 
     <!-- Settings home items -->
     <!-- Translators: Option or section label for lyrics translation in the settings. -->
-    <string name="settings_ai_lyrics_translation">AI lyrics translation</string>
+    <string name="settings_ai_lyrics_translation">Lyrics translation</string>
+    <!-- Translators: Setting label for choosing how lyrics are translated. -->
+    <string name="translation_engine">Translation method</string>
+    <string name="translation_engine_standard">Standard (Google Translate)</string>
+    <string name="translation_engine_ai">AI model</string>
+    <string name="translation_engine_description">Standard needs no account or key. AI models need your own provider setup.</string>
 
     <!-- Updater -->
     <!-- Translators: Heading for available in the app updates. -->
@@ -2979,6 +2984,7 @@
     <!-- Casting -->
     <!-- Translators: Label for cast in the connected-player controls and full player. -->
     <string name="cast">Play on TVs and speakers</string>
+    <string name="playing_on_device">Playing on %1$s</string>
     <!-- Translators: Label for to device in the casting. -->
     <!-- Translators: Progress or status message for searching for cast devices in the Cast device dialog. -->
     <!-- Translators: Empty-state message for no cast devices found in the Cast device dialog. -->

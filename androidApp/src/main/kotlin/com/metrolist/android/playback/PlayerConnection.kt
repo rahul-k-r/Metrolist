@@ -21,6 +21,9 @@ import com.metrolist.shared.deviceconnect.DcPlaybackAction
 import com.metrolist.shared.deviceconnect.DcPlaybackCommand
 import com.metrolist.shared.deviceconnect.DcSyncError
 import com.metrolist.shared.deviceconnect.DeviceConnectManager
+import com.metrolist.shared.deviceconnect.castDeviceNameOrNull
+import com.metrolist.shared.deviceconnect.followingPeerNameOrNull
+import com.metrolist.shared.deviceconnect.resolvePlayingOnDevice
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.error_unknown
 import com.metrolist.shared.generated.resources.playlist_unavailable
@@ -321,6 +324,18 @@ class PlayerConnection(
 
     private val _castState = MutableStateFlow(CastState())
     override val castState: StateFlow<CastState> = _castState.asStateFlow()
+
+    override val playingOnDevice: StateFlow<String?> =
+        combine(
+            _castState,
+            AndroidDeviceConnect.manager.remote.state,
+            AndroidDeviceConnect.manager.state,
+        ) { cast, sync, dc ->
+            resolvePlayingOnDevice(
+                castDeviceNameOrNull(cast, Settings.shared.castEnabled),
+                followingPeerNameOrNull(sync.targetId, dc.localDeviceId, dc.peers),
+            )
+        }.distinctUntilChanged().stateIn(scope, SharingStarted.Eagerly, null)
 
     val videoPlayer: Player?
         get() = musicService?.media3Player

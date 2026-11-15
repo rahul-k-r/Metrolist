@@ -86,6 +86,7 @@ import com.metrolist.shared.settings.expressiveMiniPlayerButtons
 import com.metrolist.shared.ui.components.PlayerSheetSurface
 import com.metrolist.shared.ui.components.WavyCircularProgressIndicator
 import com.metrolist.shared.ui.components.currentSongArtworkShape
+import com.metrolist.shared.ui.player.PlayingOnLine
 import com.metrolist.shared.ui.components.images.AsyncImage
 import com.metrolist.shared.ui.components.rememberArtworkShapeRotation
 import com.metrolist.shared.ui.components.rememberTrackMarquee
@@ -130,6 +131,7 @@ fun ExpressiveMiniPlayer(
     onDpadExpand: () -> Unit = onExpand,
     playbackActionLabel: String? = null,
     playbackActionIcon: ImageVector? = null,
+    playingOnDevice: String? = null,
 ) {
     val settings = Settings.shared
     val buttons = settings.expressiveMiniPlayerButtons
@@ -309,6 +311,13 @@ fun ExpressiveMiniPlayer(
                         overflow = TextOverflow.Ellipsis,
                         modifier = marquee,
                     )
+                    playingOnDevice?.let {
+                        PlayingOnLine(
+                            name = it,
+                            color = onContainer.copy(alpha = 0.7f),
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 13.sp, letterSpacing = 0.sp),
+                        )
+                    }
                 }
                 if (buttons.isNotEmpty()) {
                     Spacer(Modifier.width(8.dp))

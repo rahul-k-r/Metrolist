@@ -160,6 +160,7 @@ import com.metrolist.shared.ui.haptics.HapticEvent
 import com.metrolist.shared.ui.haptics.MetrolistHaptics
 import com.metrolist.shared.ui.haptics.rememberMetrolistHaptics
 import com.metrolist.shared.ui.icons.MetrolistIcons
+import com.metrolist.shared.ui.player.PlayingOnLine
 import com.metrolist.shared.ui.player.shouldShowMusicVideoSurface
 import com.metrolist.shared.ui.tv.tvFocusHighlight
 import com.metrolist.shared.ui.utils.nativeBlurCompat
@@ -219,6 +220,7 @@ fun MiniPlayer(
     val duration by playerConnection.duration.collectAsState(initial = 0L)
     val playbackSpeed by playerConnection.playbackSpeedFlow.collectPlaybackDisplayState(progressActive) { it }
     val isCasting by playerConnection.castState.collectPlaybackDisplayState(progressActive) { it.isConnected }
+    val playingOnDevice by playerConnection.playingOnDevice.collectAsState()
     val interpolationSpeed = if (isCasting) 1f else playbackSpeed
     val isProgressAnimating = progressActive && duration > 0L && isPlaying && !isPlaybackLoading
     val progress =
@@ -460,6 +462,7 @@ fun MiniPlayer(
                         null
                     },
                 onAddToPlaylist = { addToPlaylist(listOf(song)) },
+                playingOnDevice = playingOnDevice,
             )
             return
         }
@@ -518,6 +521,7 @@ fun MiniPlayer(
                             miniPlayerActive,
                 ),
             focusRequester = cardFocusRequester,
+            playingOnDevice = playingOnDevice,
         )
     }
 }
@@ -629,6 +633,7 @@ internal fun MiniPlayerCard(
     videoPlayer: androidx.media3.common.Player?,
     showVideo: Boolean,
     focusRequester: FocusRequester?,
+    playingOnDevice: String? = null,
 ) {
     val miniPlayerBlurRadiusPx = with(LocalDensity.current) { 60.dp.toPx() }
     val previousLabel = stringResource(Res.string.previous)
@@ -809,6 +814,7 @@ internal fun MiniPlayerCard(
                 useDesktopLayout = useDesktopLayout,
                 active = active,
                 isLive = isLive,
+                playingOnDevice = playingOnDevice,
                 metadataModifier =
                     if (isTv) {
                         Modifier
@@ -926,6 +932,7 @@ private fun MiniPlayerContent(
     onSubscribeToggle: (() -> Unit)?,
     videoPlayer: androidx.media3.common.Player?,
     showVideo: Boolean,
+    playingOnDevice: String? = null,
 ) {
     if (useDesktopLayout) {
         DesktopMiniPlayerContent(
@@ -975,6 +982,7 @@ private fun MiniPlayerContent(
         )
     } else if (miniPlayerType == MiniPlayerType.MODERN) {
         ModernMiniPlayerContent(
+            playingOnDevice = playingOnDevice,
             modifier = modifier,
             metadataModifier = metadataModifier,
             currentSong = currentSong,
@@ -1003,6 +1011,7 @@ private fun MiniPlayerContent(
         )
     } else {
         VintageMiniPlayerContent(
+            playingOnDevice = playingOnDevice,
             modifier = modifier,
             metadataModifier = metadataModifier,
             currentSong = currentSong,
@@ -1028,6 +1037,7 @@ private fun MiniPlayerContent(
 
 @Composable
 private fun ModernMiniPlayerContent(
+    playingOnDevice: String?,
     modifier: Modifier = Modifier,
     metadataModifier: Modifier,
     currentSong: SongItem,
@@ -1116,6 +1126,14 @@ private fun ModernMiniPlayerContent(
                 overflow = TextOverflow.Ellipsis,
                 modifier = marqueeModifier,
             )
+
+            playingOnDevice?.let {
+                PlayingOnLine(
+                    name = it,
+                    color = secondaryContentColor,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp, lineHeight = 12.sp),
+                )
+            }
         }
 
         Spacer(modifier = Modifier.width(12.dp))
@@ -1135,6 +1153,7 @@ private fun ModernMiniPlayerContent(
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun VintageMiniPlayerContent(
+    playingOnDevice: String?,
     modifier: Modifier = Modifier,
     metadataModifier: Modifier,
     currentSong: SongItem,
@@ -1220,6 +1239,14 @@ private fun VintageMiniPlayerContent(
                 overflow = TextOverflow.Ellipsis,
                 modifier = marqueeModifier,
             )
+
+            playingOnDevice?.let {
+                PlayingOnLine(
+                    name = it,
+                    color = secondaryContentColor,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 13.sp),
+                )
+            }
         }
 
         IconButton(

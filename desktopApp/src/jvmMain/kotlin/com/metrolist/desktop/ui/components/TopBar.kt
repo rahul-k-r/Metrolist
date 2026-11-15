@@ -260,19 +260,23 @@ fun WindowScope.CustomTitleBar(
                 modifier = Modifier.weight(2f),
                 contentAlignment = Alignment.Center,
             ) {
-                if (hideSearch) {
-                    IconButton(onClick = { UiState.showFloatingSearch = true }, shapes = IconButtonDefaults.shapes()) {
-                        Icon(MetrolistIcons.Default.Search, contentDescription = stringResource(Res.string.search))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (hideSearch) {
+                        IconButton(onClick = { UiState.showFloatingSearch = true }, shapes = IconButtonDefaults.shapes()) {
+                            Icon(MetrolistIcons.Default.Search, contentDescription = stringResource(Res.string.search))
+                        }
+                    } else {
+                        M3ExpressiveSearchBar(
+                            searchText = searchText,
+                            onSearchChange = onSearchChange,
+                            onSearchFocusChange = onSearchFocusChange,
+                            requestBackgroundFocus = requestBackgroundFocus,
+                            colorScheme = colorScheme,
+                            searchWidth = searchWidth,
+                        )
                     }
-                } else {
-                    M3ExpressiveSearchBar(
-                        searchText = searchText,
-                        onSearchChange = onSearchChange,
-                        onSearchFocusChange = onSearchFocusChange,
-                        requestBackgroundFocus = requestBackgroundFocus,
-                        colorScheme = colorScheme,
-                        searchWidth = searchWidth,
-                    )
+                    Spacer(Modifier.width(8.dp))
+                    DevicePillButton()
                 }
             }
 
@@ -713,6 +717,8 @@ fun WindowScope.TopBarWithPlayer(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                DevicePillButton()
+                Spacer(Modifier.width(4.dp))
                 PlaylistImportProgressIndicator()
                 ExpressiveDownloadIndicatorPill(colorScheme)
             }

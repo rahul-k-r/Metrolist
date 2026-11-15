@@ -137,6 +137,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -1025,6 +1026,22 @@ object PlayerState {
                     ) {
                         dcVideoSwap = DcVideoSwap(song, target.id, resolved.positionMap)
                         UiState.showVideoViewer = true
+                        // The queue swap lands asynchronously and the track-change handling resets video state, so
+                        // wait for the video version to actually be playing and then start video like a local switch.
+                        val swapped =
+                            withTimeoutOrNull(20_000L) {
+                                while (currentTrack?.id != target.id || player.currentPlaybackResource.value?.videoId != target.id) {
+                                    delay(100L)
+                                }
+                                true
+                            }
+                        if (swapped == true && requestId == videoModeRequestId && UiState.showVideoViewer) {
+                            withContext(Dispatchers.Main) {
+                                video.setResolving(true)
+                                video.setVideoResource(null)
+                                attachBackgroundVideoResource(target, playbackTransitionGeneration)
+                            }
+                        }
                         return@launch
                     }
                     if (target.id != song.id && isListenTogetherGuest()) return@launch

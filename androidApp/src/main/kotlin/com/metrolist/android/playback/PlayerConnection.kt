@@ -301,14 +301,22 @@ class PlayerConnection(
 
     private val _isVideoModeActive = MutableStateFlow(false)
 
-    // A follower has no video of its own; the playing device switching to the video version is the only signal.
+    /** What this device last asked the playing device for; a follower has no video state of its own to read. */
+    private val followerVideoRequest = MutableStateFlow<Boolean?>(null)
+
     override val isVideoModeActive: StateFlow<Boolean> =
         combine(
             _isVideoModeActive,
             _currentSong,
+            followerVideoRequest,
             AndroidDeviceConnect.manager.remote.state,
-        ) { local, song, _ ->
-            if (AndroidDeviceConnect.manager.remote.isFollowing) song?.isVideoSong == true else local
+        ) { local, song, requested, _ ->
+            if (AndroidDeviceConnect.manager.remote.isFollowing) {
+                requested ?: (song?.isVideoSong == true)
+            } else {
+                if (requested != null) followerVideoRequest.value = null
+                local
+            }
         }.stateIn(scope, SharingStarted.Eagerly, false)
 
     private val _isVideoModeResolving = MutableStateFlow(false)
@@ -1553,11 +1561,13 @@ class PlayerConnection(
 
     override fun toggleVideoMode() {
         if (deferUntilConnected { toggleVideoMode() }) return
+        if (AndroidDeviceConnect.manager.remote.isFollowing) followerVideoRequest.value = !isVideoModeActive.value
         musicService?.toggleVideoMode()
     }
 
     override fun setVideoMode(wantVideo: Boolean) {
         if (deferUntilConnected { setVideoMode(wantVideo) }) return
+        if (AndroidDeviceConnect.manager.remote.isFollowing) followerVideoRequest.value = wantVideo
         musicService?.setVideoMode(wantVideo)
     }
 

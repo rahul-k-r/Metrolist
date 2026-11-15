@@ -51,6 +51,12 @@ class DeviceConnectRemote(
         }
 
     val isFollowing: Boolean get() = isActive && state.value.targetId != localDeviceId()
+
+    /**
+     * Crossfade, gapless preload and other local track handoffs. Only a follower has no audio of its own to hand off;
+     * a target keeps playing locally and reports the resulting track change to its controllers.
+     */
+    val allowsLocalTransitions: Boolean get() = !isFollowing
     val queueRevision: Long? get() = canonical?.queueRevision
     val trackRevision: Long? get() = canonical?.trackRevision
 

@@ -762,10 +762,14 @@ object PlayerState {
                 }
                 updateCurrentTrack(song, startArtworkFetch = true)
                 if (!resource.hasVideo) attachBackgroundVideoResource(song, playbackTransitionGeneration)
+                if (deviceConnect.isActive && !deviceConnect.isFollowing) {
+                    syncSession.setReady(true)
+                    deviceConnect.localStateChanged(trackChanged = true)
+                }
             },
             onUnconsumedEof = { skipNext(fromEOF = true) },
             episodeResumePosition = { song, duration -> podcastResumePosition(song, duration) ?: 0L },
-            allowed = { !sleepTimerStopAfterCurrentSong && repeatMode != RepeatMode.ONE && !deviceConnect.isActive },
+            allowed = { !sleepTimerStopAfterCurrentSong && repeatMode != RepeatMode.ONE && deviceConnect.allowsLocalTransitions },
         )
     }
 
@@ -2082,7 +2086,8 @@ object PlayerState {
                     if (sleepTimerStopAfterCurrentSong) {
                         setPlaybackPlaying(false)
                         clearSleepTimer()
-                    } else {
+                    } else if (deviceConnect.isFollowing || !transitions.onEof(completedPlaybackInstanceId)) {
+                        // A target hands off to its preloaded next track itself; the session sees the change as a local one.
                         deviceConnect.playbackEnded()
                     }
                     return@collect
@@ -2109,18 +2114,18 @@ object PlayerState {
                     Triple(
                         crossfadeEnabled to crossfadeDuration,
                         Settings.shared.crossfadeGapless to repeatMode,
-                        Triple(sleepTimerStopAfterCurrentSong, sleepTimerFadeOut, deviceConnect.isActive),
+                        Triple(sleepTimerStopAfterCurrentSong, sleepTimerFadeOut, deviceConnect.isFollowing),
                     )
                 },
             ) { pos, dur, _, _, _ -> pos to dur }
                 .collectLatest { (pos, dur) ->
                     transitions.queueChanged()
-                    if (dur <= 0L || transitions.isCrossfading || deviceConnect.isActive ||
+                    if (dur <= 0L || transitions.isCrossfading || !deviceConnect.allowsLocalTransitions ||
                         sleepTimerStopAfterCurrentSong
                     ) {
                         player.setTransitionSampling(
                             player.currentPlaybackInstanceId,
-                            60_000L.takeIf { sleepTimerStopAfterCurrentSong && sleepTimerFadeOut && !deviceConnect.isActive },
+                            60_000L.takeIf { sleepTimerStopAfterCurrentSong && sleepTimerFadeOut && deviceConnect.allowsLocalTransitions },
                         )
                         return@collectLatest
                     }
@@ -2179,8 +2184,10 @@ object PlayerState {
             deviceConnect.attach(deviceConnectPlayback)
             deviceConnect.state.collectLatest {
                 if (deviceConnect.isActive) {
-                    cancelCrossfadeForManualAction()
-                    if (deviceConnect.isFollowing) radio.reset()
+                    if (deviceConnect.isFollowing) {
+                        cancelCrossfadeForManualAction()
+                        radio.reset()
+                    }
                 } else {
                     syncSession.disconnected()
                 }

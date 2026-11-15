@@ -447,6 +447,7 @@ class LyricsRepositoryTest {
     fun selectedAiOutputOverridesBundledTranslations() =
         runBlocking {
             Settings.shared.lyricsAiTranslationEnabled = true
+            Settings.shared.lyricsAiProvider = "OpenRouter"
             Settings.shared.lyricsAiTargetLanguage = "zh-CN"
             Settings.shared.lyricsAiApiKey = "test-key"
             Settings.shared.lyricsRomanizationEnabled = false

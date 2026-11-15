@@ -98,6 +98,9 @@ version = appVersion
 val desktopMemoryJvmArgs =
     listOf(
         "-XX:MaxDirectMemorySize=128m",
+        // Threads that touched ffmpeg must never exit (its TLS exit hook corrupts the heap). This has to be set before
+        // any coroutine runs, so it is a JVM flag; setting it in main() proved too late (a worker still exited, crash 15:42).
+        "-Dkotlinx.coroutines.scheduler.keep.alive.sec=2147483647",
         "-Xms32m",
         "-Xmx384m",
         "-XX:+UseG1GC",

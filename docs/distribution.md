@@ -38,7 +38,11 @@ The source recipe and verification live in `aur/`. The generator writes `aur/rel
 
 ## Nix
 
-`flake.nix` uses `appimageTools` for Linux x86_64/aarch64 and pins nixpkgs. Generated output includes `nix/packaging/release.json` with fixed-output hashes.
+`flake.nix` uses `appimageTools` for Linux x86_64/aarch64 and pins nixpkgs. Generated output includes `nix/packaging/release.json` with fixed-output hashes. The FHS sandbox uses the host's ALSA configuration. Do not add `alsa-plugins` to `extraPkgs`, because its `/etc/alsa` hides the host's PipeWire configuration.
+
+The sandbox includes `glib-networking` and adds its GIO modules to `GIO_EXTRA_MODULES` for WebKitGTK TLS. It preserves any existing module paths.
+
+Nix and Arch install `Metrolist.desktop`, matching the AppImage and native AppImage desktop files, `StartupWMClass=Metrolist` and the Linux window's `Metrolist` app ID.
 
 ```sh
 nix build path:./build/distribution/nix
@@ -92,7 +96,7 @@ python3 .github/tests/test_release_workflows.py
 python3 .github/tests/test_repository_checks.py
 bash -n scripts/build_appimage.sh
 shellcheck scripts/build_appimage.sh packaging/flatpak/com.metrolist.desktop
-actionlint .github/workflows/release.yml .github/workflows/verify-repository-checks.yml
+actionlint .github/workflows/ci.yml .github/workflows/release.yml .github/workflows/verify-repository-checks.yml
 ```
 
 `scripts/build_appimage.sh` accepts a `GRADLE` executable override and rejects a successful build without a nonempty AppImage.

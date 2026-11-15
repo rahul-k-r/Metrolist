@@ -272,7 +272,7 @@ class ScrobbleManager internal constructor(
             return
         }
         updatePlayedTime()
-        currentSong = song.copy(duration = song.duration?.takeIf { it > 0L } ?: currentSong?.duration)
+        currentSong = if (song.isLive) song else song.copy(duration = song.duration?.takeIf { it > 0L } ?: currentSong?.duration)
         lastUpdateMs = monotonicClock()
         if (reportingEnabled) startTicker()
     }
@@ -633,7 +633,7 @@ class ScrobbleManager internal constructor(
             if (currentSong?.id != song.id) onSongStart(song) else onSongResume(song)
         } else {
             if (currentSong?.id == song.id) {
-                currentSong = song.copy(duration = song.duration?.takeIf { it > 0L } ?: currentSong?.duration)
+                currentSong = if (song.isLive) song else song.copy(duration = song.duration?.takeIf { it > 0L } ?: currentSong?.duration)
                 onSongPause()
             } else {
                 onSongStop()

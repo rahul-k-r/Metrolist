@@ -2286,6 +2286,7 @@ object PlayerState {
         startIndex: Int = 0,
         resetRecommendations: Boolean = true,
         songsOnly: Boolean = false,
+        shuffleModeEnabled: Boolean? = null,
     ) {
         val startSong = songs.getOrNull(startIndex)
         val blocked = BlockedContent.snapshot()
@@ -2302,11 +2303,16 @@ object PlayerState {
         if (resetRecommendations) {
             radio.reset()
         }
-        val retainShuffle = Settings.shared.persistentShuffleAcrossQueues && shuffleEnabled
+        val retainShuffle = shuffleModeEnabled ?: (Settings.shared.persistentShuffleAcrossQueues && shuffleEnabled)
         syncSession.resetQueueMetadata()
         queue.setQueue(filteredSongs, adjustedStartIndex, recommendationsSongsOnly = songsOnly)
         shuffleEnabled = retainShuffle
-        if (retainShuffle) queue.toggleShuffle(legacyShuffle = Settings.shared.useLegacyShuffle)
+        if (retainShuffle) {
+            queue.toggleShuffle(
+                preserveHistory = shuffleModeEnabled != true,
+                legacyShuffle = Settings.shared.useLegacyShuffle,
+            )
+        }
         queueChanged()
     }
 
@@ -2665,21 +2671,38 @@ object PlayerState {
                 playbackRequested = if (isPlaybackResolving) desiredPlayback.value else player.wantsPlayback,
             )
 
+    fun shuffleQueue(
+        songs: List<SongItem>,
+        songsOnly: Boolean = false,
+    ) {
+        val playable = BlockedContent.filterPlayableSongs(songs)
+        playable.randomOrNull()?.let { playTrack(it, playable, songsOnly, shuffleModeEnabled = true) }
+    }
+
     fun playTrack(
         track: SongItem,
         list: List<SongItem>? = null,
         songsOnly: Boolean = false,
+        shuffleModeEnabled: Boolean? = null,
     ) {
         if (track.isUnavailable) return
         if (list?.any { it.isUnavailable } == true) {
-            playTrack(track, list.filterNot { it.isUnavailable }, songsOnly)
+            playTrack(track, list.filterNot { it.isUnavailable }, songsOnly, shuffleModeEnabled)
             return
         }
         val songs = list?.takeIf { it.isNotEmpty() } ?: listOf(track)
         val index = songs.indexOfPlaylistOccurrence(track).coerceAtLeast(0)
         val action = if (list === queue.items.value) DcPlaybackAction.SELECT else DcPlaybackAction.REPLACE_QUEUE
         if (deviceConnect.intercept(
-                DcPlaybackCommand(action, songs = songs, index = index, finite = list != null),
+                DcPlaybackCommand(
+                    action,
+                    songs = songs,
+                    index = index,
+                    finite = list != null,
+                    enabled = shuffleModeEnabled,
+                    preserveHistory =
+                        shuffleModeEnabled != true,
+                ),
                 expectedQueue = queue.snapshots.value,
             )
         ) {
@@ -2702,6 +2725,7 @@ object PlayerState {
             list,
             startPaused = !localSongChangeStartsPlayback(),
             songsOnly = songsOnly || (list === queue.items.value && queue.recommendationsSongsOnly),
+            shuffleModeEnabled = shuffleModeEnabled,
         )
     }
 
@@ -2830,6 +2854,7 @@ object PlayerState {
         list: List<SongItem>? = null,
         startPaused: Boolean = false,
         songsOnly: Boolean = false,
+        shuffleModeEnabled: Boolean? = null,
     ) {
         cancelCrossfadeForManualAction()
         val restorePosition = pendingResumePosition?.takeIf { list?.isEmpty() == true && it.first == track.id }
@@ -2843,7 +2868,7 @@ object PlayerState {
                     if (list === queue.items.value) {
                         queue.skipTo(startIndex)
                     } else {
-                        replaceQueue(list, startIndex, songsOnly = songsOnly)
+                        replaceQueue(list, startIndex, songsOnly = songsOnly, shuffleModeEnabled = shuffleModeEnabled)
                     }
                     playableTrack = queue
                         .currentItem()
@@ -2919,7 +2944,7 @@ object PlayerState {
                     if (resource != null && isCurrentPlaybackTransition(generation)) {
                         val liveTrack =
                             if (resource.isLive && !playableTrack.isLive) {
-                                val updated = playableTrack.copy(musicVideoType = MUSIC_VIDEO_TYPE_LIVE)
+                                val updated = playableTrack.copy(musicVideoType = MUSIC_VIDEO_TYPE_LIVE, duration = null)
                                 queue.replaceCurrent(updated)
                                 withContext(Dispatchers.Main) {
                                     updateCurrentTrack(updated, startArtworkFetch = false)
@@ -3070,7 +3095,7 @@ object PlayerState {
                 if (resource != null && isCurrent()) {
                     val liveTrack =
                         if (resource.isLive && !playableTrack.isLive) {
-                            val updated = playableTrack.copy(musicVideoType = MUSIC_VIDEO_TYPE_LIVE)
+                            val updated = playableTrack.copy(musicVideoType = MUSIC_VIDEO_TYPE_LIVE, duration = null)
                             (stagedQueue ?: queue).replaceCurrent(updated)
                             updated
                         } else {

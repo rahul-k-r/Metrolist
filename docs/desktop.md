@@ -12,9 +12,17 @@ The fullscreen player's exit button restores the previous window placement and c
 
 Windows keeps its native borderless style and placement snapshot separate from Compose's placement. Exit restores the saved style, frame, bounds and maximized state. A window restored in native fullscreen exits to its last normal placement instead of saving fullscreen as the restore target. Fullscreen changes the existing window's style and placement; video does not embed a native surface.
 
+On Linux and macOS, restoring a maximized window first clears native fullscreen, then reapplies the saved placement. The player button and macOS menu use the same placement setter.
+
 Windows paints behind the maximized frame insets and applies the theme background to the AWT and Skiko backing components during startup and normal use.
 
 Connected action groups use the shared Material shapes and spacing, with fixed corners during press and selection. The fullscreen artwork player's action buttons are 40 dp tall, and its transport buttons share one height. Overflow sizing includes minimum touch targets and the gap before the overflow button so the last visible action has the trailing corners. The bottom volume button stays round beside overflow, with a 12 dp gap before the volume segment.
+
+## Miniplayer
+
+The Linux miniplayer uses the main window's X11 drag handler, which avoids Compose's JBR window-move lookup. Both JVM and native packages use this handler. Linux keeps the miniplayer window opaque, because some backends stop drawing transparent undecorated windows, so both layouts use square corners there.
+
+Check both layouts on a Linux desktop with the packaged JVM AppImage and native AppImage. Verify dragging, playback buttons, seeking, opening and closing, focus-mode control fades and pressed-button springs. Repeat on X11 and XWayland with OpenGL and software rendering.
 
 ## Windows taskbar
 
@@ -26,7 +34,9 @@ With logging enabled, `WindowsWindow` records native minimize and restore sizes 
 
 ## Linux audio setup
 
-Desktop uses bundled FFmpeg to decode audio and Java Sound to send PCM through ALSA. Automatic output selection tries `default`, `pipewire` and `pulse` mixers. It does not select arbitrary hardware, loopback or null outputs.
+Desktop uses bundled FFmpeg to decode audio and Java Sound to send PCM through ALSA. Automatic output selection tries named `default`, `pipewire` and `pulse` mixers before asking Java Sound for its default line. This also supports ALSA devices whose mixer names differ. Preferred mixers keep priority so Java Sound does not select a hardware or loopback output when a system route works.
+
+Linux FFmpeg JARs exclude ALSA, PulseAudio, JACK and PipeWire libraries. JVM distributions, AppImages and native-image builds use the host's audio libraries, configuration and plugins. No Linux target keeps a bundled ALSA fallback. `verifyLinuxAudioLibraries` checks JVM package directories and JARs after packaging, including when other packaging checks are disabled. Native builds check their input classpath before compilation and their output directory before packaging. To check a directory, JAR or tarball directly, run `python3 scripts/desktop-native-image/verify_linux_audio.py <path>`.
 
 PipeWire and PulseAudio hosts need their distribution's ALSA integration. On Arch with PipeWire, install `pipewire-alsa`. If playback progresses silently, check the default ALSA route and restart Metrolist after changing it. An explicit `javax.sound.sampled.SourceDataLine` property delegates selection to Java Sound.
 
@@ -44,6 +54,8 @@ The hidden PO-token WebView is created on first use and reused until shutdown. I
 
 ## Discord login
 
+Hiding the window to the tray keeps Discord presence, because playback continues. Quit, SIGTERM and the JVM shutdown hook clear presence before closing the connection. A fresh connection sends an empty presence before publishing the current track. A forced process kill cannot run cleanup; Discord controls how long the disconnected Gateway session remains visible. Track-end timestamps describe playback progress and do not guarantee presence expiry.
+
 Desktop Discord login opens the default browser with a PKCE authorization URL and the `metrolist-auth://discord/callback` redirect. The waiting dialog offers Cancel and Open again. Callbacks use the saved two-minute session, require the exact redirect and state, and consume the verifier before token exchange. macOS open-URI events and second-launch arguments on Windows and Linux enter the desktop URL handler. A callback can restore a pending session after an app restart.
 
 Windows registers `metrolist-auth` under `HKCU\Software\Classes` for the running packaged executable, including portable ZIPs. The macOS bundle declares the scheme beside `metrolist`. AppImage, Arch, Nix and Flatpak desktop entries advertise `x-scheme-handler/metrolist-auth`. Linux reuses an associated package desktop entry when available. Otherwise login writes a hidden per-user desktop entry and verifies its `xdg-mime` association. AppImage registration uses the persistent AppImage path; native Linux packages use the launcher wrapper. Installed Flatpak uses its exported desktop entry.
@@ -51,6 +63,8 @@ Windows registers `metrolist-auth` under `HKCU\Software\Classes` for the running
 The embedded login is used when registration fails, when a macOS launch lacks a bundle or open-URI support, or when an unpackaged JVM launch has no native launcher. Linux registration requires working `xdg-mime` and writable user application data. Browser launch failure keeps the waiting dialog available for retry.
 
 ## Display density
+
+Linux JVM and native launchers preserve `XCURSOR_THEME` and `XCURSOR_SIZE`. In KDE sessions they read Plasma's `kcminputrc` through `kreadconfig6` or `kreadconfig5`, without applying GNOME cursor defaults. Missing or automatic cursor sizes stay unset for the toolkit to resolve.
 
 Appearance's Display density scales text, icons and controls on top of the system scale. Desktop uses the same 55% to 125% presets and saved preference as Android. Changes apply live to the main window, mini player, Compose dialogs and popups. Library grid columns controls only the library column count.
 
@@ -106,6 +120,10 @@ Bytedeco publishes no `windows-arm64` FFmpeg natives. `scripts/build_windows_arm
 ```
 
 The AppImage script writes `dist/Metrolist.AppImage` and accepts `GRADLE` to select the Gradle command. The DMG task requires macOS and writes under `desktopApp/build/compose/binaries/main-release/dmg/`. Packages include their own runtime.
+
+The AppImage script and Windows and macOS release workflows pass `-Pmetrolist.debug=false` so release packages use the release title and settings.
+
+On launch, JVM and native AppImages install a per-user `Metrolist.desktop` with the persistent AppImage path and a copied icon. Pinned launchers can reopen it after the temporary mount disappears. An installed system `Metrolist.desktop` takes precedence. Moving the AppImage requires launching it once from its new location to update the entry.
 
 The Arch recipe is in [`aur/`](../aur/). `make aur-install` builds from the local tree. Standalone recipes fetch remote source. `bash aur/test-recipe.sh` checks recipe behavior without building the app.
 
@@ -226,6 +244,8 @@ The logger buffers writes. Export or normal shutdown flushes them; native termin
 Packaged JVMs write fatal HotSpot reports as `hs_err_pid<PID>.log` in the log directory. A termination outside HotSpot's fatal handler may produce no file.
 
 Desktop playback installs FFmpeg's native log callback. Warnings and errors go to both `app.log` and the playback event log; the file logger flushes these records immediately. FFmpeg runs inside the JVM, so it has no separate process exit code or stderr pipe. Unexpected demuxer errors and video decoder errors include the native return code. FFmpeg decodes video into Skia bitmap storage. Video teardown joins decoder threads and uses draw locking; keep both, along with padded scaler rows.
+
+Animated covers keep one decoder at a time per artwork slot. Track changes wait for the previous load, decoder and draw to finish before creating the next cover player. Failed loads or ended playback clear the animated frame so static artwork remains visible. Cover cancellation aborts pending downloads and waits for native cleanup off the UI thread.
 
 `session-running.txt` records an active desktop session. Normal app shutdown removes it. On the next start, a remaining marker or an unreported `hs_err_pid` file produces a diagnostic in both logs. When crash reporting is enabled and an unreported crash file exists, the Sentry client sends a previous-exit event with `previous-desktop-exit.txt` attached. The attachment contains the session description and a bounded, redacted summary of each crash header and native stack. It omits VM arguments, environment variables and memory dumps. The original crash files stay on disk; `.reported` files prevent repeated uploads. An unfinished shutdown alone also covers forced termination and power loss, so it does not prove a native crash. Sentry events include `desktop.os`, `desktop.os_version` and `desktop.arch` tags.
 

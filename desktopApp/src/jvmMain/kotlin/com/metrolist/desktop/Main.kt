@@ -153,6 +153,7 @@ import com.metrolist.desktop.window.WindowFrame
 import com.metrolist.desktop.window.WindowVisibility
 import com.metrolist.desktop.window.findSkiaLayer
 import com.metrolist.desktop.window.restoreWindowPosition
+import com.metrolist.desktop.window.setWindowPlacement
 import com.metrolist.desktop.youtube.DesktopPageBoundTokenHost
 import com.metrolist.desktop.youtube.DesktopPageBoundTokenRuntime
 import com.metrolist.shared.BuildConfig
@@ -234,9 +235,11 @@ import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import sun.misc.Signal
 import sun.misc.SignalHandler
+import java.awt.Desktop
 import java.awt.EventQueue
 import java.awt.Frame
 import java.awt.GraphicsEnvironment
+import java.awt.desktop.AppReopenedListener
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import java.io.File
@@ -658,6 +661,7 @@ private fun shutdownApp(onComplete: () -> Unit) {
     if (!isShuttingDown.compareAndSet(false, true)) return
     shutdownScope.launch {
         try {
+            runCatching { DiscordRpcManager.destroy() }
             // Bounded: after a fatal error the composition may never dispose, and cleanup must still run.
             withTimeoutOrNull(UI_DISPOSE_TIMEOUT_MS) {
                 withContext(Dispatchers.Main) { uiVisible = false }
@@ -668,7 +672,6 @@ private fun shutdownApp(onComplete: () -> Unit) {
             if (startup.initialized) {
                 val deviceConnectRelease = launch { runCatching { DesktopDeviceConnect.manager.release() } }
                 runCatching { PlayerState.release() }
-                runCatching { DiscordRpcManager.destroy() }
                 runCatching { ComposeTrayManager.cleanup() }
                 runCatching { SongCacheManager.release() }
                 runCatching { DownloadManager.release() }
@@ -718,6 +721,9 @@ internal fun runBoundedShutdown(
 }
 
 private fun installGracefulShutdownSignals() {
+    Runtime.getRuntime().addShutdownHook(
+        Thread({ runBlocking { DiscordRpcManager.destroy() } }, "DiscordPresenceShutdown"),
+    )
     val handler =
         SignalHandler { signal ->
             AppLogger.info("Main", "Received ${signal.name} signal, shutting down")
@@ -896,6 +902,7 @@ private fun runDesktopApp(args: Array<String>) {
                     exitWithStartupMessage(downgrade.message.orEmpty())
                 }
             startup.trace("database")
+            runBlocking { SongLikeState.recoverDatabaseLikes(database) }
             SongMetadataState.bind(database, applicationScope)
 
             LastFM.initialize(
@@ -1268,12 +1275,13 @@ private fun runDesktopApp(args: Array<String>) {
                     navigator = navigator,
                     windowState = windowState,
                     toggleWindowFullscreen = {
-                        windowState.placement =
+                        val placement =
                             if (windowState.placement == WindowPlacement.Fullscreen) {
                                 lastNormalPlacement.value
                             } else {
                                 WindowPlacement.Fullscreen
                             }
+                        setWindowPlacement(windowState, placement) { window.placement = it }
                     },
                     onRefresh = {
                         UiState.isRefreshingApp = true
@@ -1284,6 +1292,7 @@ private fun runDesktopApp(args: Array<String>) {
                         }
                     },
                     onCloseWindow = { minimizeToTrayOrClose() },
+                    onQuit = { shutdownApp { exitProcess(0) } },
                 )
             }
 
@@ -1447,6 +1456,27 @@ private fun runDesktopApp(args: Array<String>) {
                 snapshotFlow { Settings.shared.startWithSystem }
                     .drop(if (Settings.shared.startWithSystem) 0 else 1)
                     .collect { enabled -> withContext(Dispatchers.IO) { WindowsAutostart.sync(enabled) } }
+            }
+
+            if (OsUtil.isMac) {
+                DisposableEffect(Unit) {
+                    val reopenListener =
+                        AppReopenedListener {
+                            ComposeTrayManager.showWindow()
+                        }
+                    runCatching {
+                        if (Desktop.isDesktopSupported()) {
+                            Desktop.getDesktop().addAppEventListener(reopenListener)
+                        }
+                    }
+                    onDispose {
+                        runCatching {
+                            if (Desktop.isDesktopSupported()) {
+                                Desktop.getDesktop().removeAppEventListener(reopenListener)
+                            }
+                        }
+                    }
+                }
             }
 
             LaunchedEffect(UiState.restartRequested) {

@@ -2244,7 +2244,7 @@ class ExoPlaybackPlayer(
         _bufferedPosition.value = candidate.bufferedPosition.coerceAtLeast(0L)
         val effectiveSong =
             if (resource.isLive && !song.isLive) {
-                song.copy(musicVideoType = MUSIC_VIDEO_TYPE_LIVE)
+                song.copy(musicVideoType = MUSIC_VIDEO_TYPE_LIVE, duration = null)
             } else {
                 song
             }
@@ -2869,7 +2869,7 @@ class ExoPlaybackPlayer(
                     }
                 val committedSong =
                     if (preparedResource.isLive && !baseSong.isLive) {
-                        baseSong.copy(musicVideoType = MUSIC_VIDEO_TYPE_LIVE)
+                        baseSong.copy(musicVideoType = MUSIC_VIDEO_TYPE_LIVE, duration = null)
                     } else {
                         baseSong
                     }

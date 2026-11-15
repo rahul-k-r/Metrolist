@@ -4448,6 +4448,7 @@
     <string name="tray_show_miniplayer">Show miniplayer</string>
     <!-- Translators: Submenu title in the desktop system tray listing the songs played most recently. -->
     <string name="tray_recently_played">Recently played</string>
+    <string name="tray_open_playlist">Open playlist</string>
     <!-- Translators: Label for tray settings in the desktop system tray. -->
     <string name="tray_settings">Settings</string>
     <!-- Translators: Label for quit metrolist in the desktop system tray. -->

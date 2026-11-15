@@ -289,6 +289,18 @@ class AudioRendererTest {
     }
 
     @Test
+    fun volumeChangeAfterCloseNeverTouchesTheNativeGainControl() {
+        val control = object : FloatControl(FloatControl.Type.MASTER_GAIN, -80f, 0f, 0.1f, 1, 0f, "dB") {}
+        val audioLine = TestSourceDataLine(control)
+        val renderer = AudioRenderer(48_000, 1, audioLine.line)
+        renderer.setVolume(0.5f)
+        val before = control.value
+        renderer.close()
+        renderer.setVolume(0.1f)
+        assertEquals(before, control.value, 0f)
+    }
+
+    @Test
     fun audioBoostRaisesDesktopDeviceOutput() {
         val audioLine = TestSourceDataLine().apply { availableBytes = Int.MAX_VALUE }
         val renderer = AudioRenderer(48_000, 1, audioLine.line)

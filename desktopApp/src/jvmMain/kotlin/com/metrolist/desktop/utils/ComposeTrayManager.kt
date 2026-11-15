@@ -16,6 +16,7 @@ import com.metrolist.desktop.state.content.LibraryContentState
 import com.metrolist.shared.generated.resources.add_to_queue
 import com.metrolist.shared.generated.resources.play_next
 import com.metrolist.shared.generated.resources.playlists
+import com.metrolist.shared.generated.resources.tray_open_playlist
 import com.metrolist.shared.generated.resources.tray_recently_played
 import kotlinx.coroutines.flow.flowOf
 import com.metrolist.desktop.state.playback.ListenTogetherState
@@ -183,6 +184,7 @@ object ComposeTrayManager {
         val strQuitMetrolist = stringResource(Res.string.tray_quit_metrolist)
         val strTrayByTemplate = stringResource(Res.string.tray_by)
         val strRecentlyPlayed = stringResource(Res.string.tray_recently_played)
+        val strOpenPlaylist = stringResource(Res.string.tray_open_playlist)
         val strPlaylists = stringResource(Res.string.playlists)
         val strPlayNext = stringResource(Res.string.play_next)
         val strAddToQueue = stringResource(Res.string.add_to_queue)
@@ -266,9 +268,12 @@ object ComposeTrayManager {
                 if (libraryPlaylists.isNotEmpty()) {
                     SubMenu(label = strPlaylists) {
                         libraryPlaylists.take(TRAY_PLAYLIST_LIMIT).forEach { playlist ->
-                            Item(label = playlist.name) {
-                                showWindow()
-                                EventQueue.invokeLater { DesktopNavigation.navigate(Screen.Playlist(playlist.id)) }
+                            SubMenu(label = playlist.name) {
+                                Item(label = strPlay) { TrayPlaylistPlayer.play(playlist.id) }
+                                Item(label = strOpenPlaylist) {
+                                    showWindow()
+                                    EventQueue.invokeLater { DesktopNavigation.navigate(Screen.Playlist(playlist.id)) }
+                                }
                             }
                         }
                     }

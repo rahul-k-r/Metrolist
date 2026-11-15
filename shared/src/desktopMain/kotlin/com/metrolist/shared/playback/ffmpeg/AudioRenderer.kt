@@ -401,17 +401,22 @@ class AudioRenderer private constructor(
         val clampedVol = volume.coerceIn(0.0f, 1.0f)
         this.volume = clampedVol
         hardwareVolumeApplied = false
-        masterGainControl?.let { control ->
-            try {
-                if (clampedVol <= 0.0001f) {
-                    control.value = control.minimum
-                } else {
-                    val dB = (20.0f * log10(clampedVol)).coerceIn(control.minimum, control.maximum)
-                    control.value = dB
+        // The master-gain write is a native audio-session call; it must not race close()/flush() on the
+        // same line (heap corruption inside AudioSes.dll in crash dumps), so it shares their lock.
+        synchronized(safeLock) {
+            if (!line.isOpen) return
+            masterGainControl?.let { control ->
+                try {
+                    if (clampedVol <= 0.0001f) {
+                        control.value = control.minimum
+                    } else {
+                        val dB = (20.0f * log10(clampedVol)).coerceIn(control.minimum, control.maximum)
+                        control.value = dB
+                    }
+                    hardwareVolumeApplied = true
+                } catch (_: Exception) {
+                    runCatching { control.value = 0f.coerceIn(control.minimum, control.maximum) }
                 }
-                hardwareVolumeApplied = true
-            } catch (_: Exception) {
-                runCatching { control.value = 0f.coerceIn(control.minimum, control.maximum) }
             }
         }
     }

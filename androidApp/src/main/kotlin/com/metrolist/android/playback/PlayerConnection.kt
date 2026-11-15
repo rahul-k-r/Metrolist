@@ -29,6 +29,7 @@ import com.metrolist.shared.generated.resources.error_unknown
 import com.metrolist.shared.generated.resources.playlist_unavailable
 import com.metrolist.shared.model.RadioQueueChip
 import com.metrolist.shared.model.SongItem
+import com.metrolist.shared.model.isVideoSong
 import com.metrolist.shared.model.isLive
 import com.metrolist.shared.playback.MusicQueue
 import com.metrolist.shared.playback.MusicQueueSnapshot
@@ -299,7 +300,16 @@ class PlayerConnection(
     override val queueChips: StateFlow<List<RadioQueueChip>> = _queueChips.asStateFlow()
 
     private val _isVideoModeActive = MutableStateFlow(false)
-    override val isVideoModeActive: StateFlow<Boolean> = _isVideoModeActive.asStateFlow()
+
+    // A follower has no video of its own; the playing device switching to the video version is the only signal.
+    override val isVideoModeActive: StateFlow<Boolean> =
+        combine(
+            _isVideoModeActive,
+            _currentSong,
+            AndroidDeviceConnect.manager.remote.state,
+        ) { local, song, _ ->
+            if (AndroidDeviceConnect.manager.remote.isFollowing) song?.isVideoSong == true else local
+        }.stateIn(scope, SharingStarted.Eagerly, false)
 
     private val _isVideoModeResolving = MutableStateFlow(false)
     override val isVideoModeResolving: StateFlow<Boolean> = _isVideoModeResolving.asStateFlow()

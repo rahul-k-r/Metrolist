@@ -615,10 +615,11 @@ object PlayerState {
             override suspend fun setVideoMode(enabled: Boolean?) =
                 withContext(Dispatchers.Main) {
                     val showing = UiState.showVideoViewer
-                    when (enabled ?: !showing) {
-                        showing -> Unit
-                        true -> requestVideoMode()
-                        false -> closeVideoViewer()
+                    if (enabled ?: !showing) {
+                        if (!showing) requestVideoMode()
+                    } else {
+                        // Also when the viewer is already hidden: the video version may still be the playing track.
+                        closeVideoViewer()
                     }
                 }
 
@@ -865,6 +866,14 @@ object PlayerState {
     val mvVideoId: String? get() = video.mvVideoId
     val mvResolutionFailedForSong: String? get() = video.mvResolutionFailedForSong
     private val videoPlaybackResource: PlaybackResource? get() = video.videoPlaybackResource
+    /** Under Device Connect the video version replaces the queue entry, so audio needs the original to swap back. */
+    private class DcVideoSwap(
+        val audioSong: SongItem,
+        val videoId: String,
+        val positionMap: CounterpartPositionMap?,
+    )
+
+    private var dcVideoSwap: DcVideoSwap? = null
     private var videoModeRequestJob: Job? = null
     private var videoModeRequestId = 0L
     private var manualVideoSongId: String? = null
@@ -1014,6 +1023,7 @@ object PlayerState {
                             expectedSessionId = sessionId,
                         )
                     ) {
+                        dcVideoSwap = DcVideoSwap(song, target.id, resolved.positionMap)
                         UiState.showVideoViewer = true
                         return@launch
                     }
@@ -1071,6 +1081,7 @@ object PlayerState {
     }
 
     fun closeVideoViewer() {
+        swapBackToAudioSong()
         videoModeRequestId++
         videoModeRequestJob?.cancel()
         video.setResolving(false)
@@ -1080,6 +1091,22 @@ object PlayerState {
         stopVideo()
         LyricsState.restoreOriginalLyricsIfRetimed()
         video.restoreOriginalAudioSource()
+    }
+
+    private fun swapBackToAudioSong() {
+        val swap = dcVideoSwap ?: return
+        dcVideoSwap = null
+        if (!deviceConnect.isActive || deviceConnect.isFollowing || currentTrack?.id != swap.videoId) return
+        deviceConnect.intercept(
+            DcPlaybackCommand(
+                DcPlaybackAction.REPLACE_CURRENT,
+                songs = listOf(swap.audioSong),
+                positionMs = counterpartPlaybackPosition(player.currentPlaybackPositionMs(), swap.positionMap, switchToVideo = false),
+                expectedTrackRevision = deviceConnect.trackRevision,
+            ),
+            expectedQueueRevision = deviceConnect.queueRevision,
+            expectedSessionId = deviceConnect.state.value.sessionId,
+        )
     }
 
     private suspend fun onTrackPlaybackStarted(

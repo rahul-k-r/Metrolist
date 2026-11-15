@@ -803,6 +803,8 @@ private fun runDesktopApp(args: Array<String>) {
             exitProcess(1)
         }
     }
+    // ffmpeg's native thread-exit hook corrupts the heap, so IO workers that decoded or released media must not time out.
+    System.setProperty("kotlinx.coroutines.scheduler.keep.alive.sec", Int.MAX_VALUE.toString())
     System.setProperty("org.bytedeco.javacpp.maxPhysicalBytes", "0")
     System.setProperty("org.bytedeco.javacpp.maxBytes", "0")
     if (!DesktopSingleInstance.acquire(args)) return

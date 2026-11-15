@@ -62,6 +62,7 @@ internal class LyricsTimelineItem(
     val hasBg: Boolean,
     val sourceEndTimeMs: Long = endTimeMs,
     private val mainWordRangesMs: LongArray,
+    val isBackgroundLine: Boolean = false,
 ) {
     fun isActiveAtSourceTime(timeMs: Long): Boolean = timeMs >= startTimeMs && timeMs < sourceEndTimeMs
 
@@ -191,6 +192,7 @@ internal fun buildLyricsTimelineItems(
                         isGap = false,
                         hasBg = hasBg,
                         mainWordRangesMs = ranges,
+                        isBackgroundLine = entry.isBackground,
                     ),
                 )
             }
@@ -596,6 +598,7 @@ internal class LyricsSyncEngine(
             currentActiveIndices.clear()
             currentActiveIndices.addAll(rawActiveIndices)
         }
+        dropFinishedPredecessors(currentTimeMs)
 
         activeItemIndicesSet.clear()
         for (i in currentActiveIndices.indices) {
@@ -692,6 +695,34 @@ internal class LyricsSyncEngine(
             )
         cachedSnapshot = snapshot
         return snapshot
+    }
+
+    /**
+     * The retained duet group keeps ended members lit, which is right for a short line inside a longer one. A
+     * line that ended *before* a later still-running plain line, and is not enclosed by an earlier line that is
+     * still running, only pins the highlight and the scroll anchor to something nobody is singing (sources that
+     * overlap two sequential lines by a fraction of a second kept the earlier one lit for the whole later line).
+     * Background lines keep the group semantics.
+     */
+    private fun dropFinishedPredecessors(currentTimeMs: Long) {
+        if (currentActiveIndices.size < 2) return
+        val lastIdx = currentActiveIndices[currentActiveIndices.lastIndex]
+        val last = items[lastIdx]
+        if (last.isGap || last.hasBg || last.isBackgroundLine || currentTimeMs >= last.endTimeMs) return
+        val members = currentActiveIndices.toList()
+        currentActiveIndices.removeAll { idx ->
+            val item = items[idx]
+            idx < lastIdx &&
+                !item.isGap &&
+                !item.hasBg &&
+                !item.isBackgroundLine &&
+                currentTimeMs >= item.endTimeMs &&
+                item.startTimeMs < last.startTimeMs &&
+                members.none { other ->
+                    val o = items[other]
+                    other != idx && o.startTimeMs <= item.startTimeMs && currentTimeMs < o.endTimeMs
+                }
+        }
     }
 
     private fun updateByRealTiming(

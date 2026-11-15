@@ -561,6 +561,9 @@ class DeviceConnectRemote(
         if (canonical == null) {
             if (auto && port?.snapshot()?.let { it.playing && it.queue.displayedItems.isNotEmpty() } != true) return
             if (!startTargetSessionFromLocal(peerId)) return
+        } else if (applyJob?.isActive != true) {
+            // A paused canonical has no ticker, so a start nobody observed would be served to the new controller as paused.
+            observeLocal(false)
         }
         controllers += peerId
         publishState()

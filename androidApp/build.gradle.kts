@@ -427,7 +427,6 @@ dependencies {
 
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.junit4)
-    debugImplementation(libs.androidx.mediarouter) // OutputSwitcherSpike (debug only)
     testImplementation(libs.junit4)
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.ktor.client.content.negotiation)

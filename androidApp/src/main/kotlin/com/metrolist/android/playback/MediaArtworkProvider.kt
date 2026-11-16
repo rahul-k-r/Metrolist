@@ -102,7 +102,6 @@ class MediaArtworkProvider : ContentProvider() {
     ): ParcelFileDescriptor {
         if (mode != "r" || uri.path != "/artwork") throw FileNotFoundException()
         val caller = callingPackage
-        android.util.Log.i("MediaArtwork", "artwork open by $caller")
         // A null caller is an in-process call, not a binder request from another app.
         if (caller != null && caller != context?.packageName && caller !in allowedPackages && caller !in WEAR_COMPANION_PACKAGES && !isSystemMediaUi()) {
             // Naming the denied package is what identifies the process the watch loads artwork through.

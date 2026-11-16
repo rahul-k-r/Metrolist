@@ -929,13 +929,7 @@ class MusicService :
                         sync.sessionId != null,
                         sync.targetId,
                         devices.peers,
-                    ).also {
-                        android.util.Log.i(
-                            "DeviceSwitch",
-                            "action=${it?.label} local='${devices.localDeviceId}' session=${sync.sessionId} " +
-                                "target=${sync.targetId} peers=${devices.peers.map { p -> "${p.name}:${p.state}" }}",
-                        )
-                    }
+                    )
                 }.distinctUntilChanged()
             combine(
                 player.currentSong,
@@ -3051,12 +3045,6 @@ class MusicService :
                 "Media controller connected trusted=%s version=%d",
                 controller.isTrusted,
                 controller.controllerVersion,
-            )
-            android.util.Log.i(
-                "ControllerConnect",
-                "pkg=${controller.packageName} uid=${controller.uid} verified=${controller.isPackageNameVerified} " +
-                    "trusted=${controller.isTrusted} version=${controller.controllerVersion} " +
-                    "uidPackages=${packageManager.getPackagesForUid(controller.uid)?.toList()}",
             )
             if (!canBrowseLibrary(session, controller)) {
                 val authorized = isAuthorizedExternalMediaController(controller)

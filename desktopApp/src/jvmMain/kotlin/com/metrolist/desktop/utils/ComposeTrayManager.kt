@@ -11,10 +11,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.window.WindowState
+import com.metrolist.desktop.deviceconnect.DesktopDeviceConnect
 import com.metrolist.desktop.state.app.DesktopNavigation
 import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.state.content.LibraryContentState
+import com.metrolist.shared.deviceconnect.deviceTargets
 import com.metrolist.shared.generated.resources.add_to_queue
+import com.metrolist.shared.generated.resources.connected_devices
+import com.metrolist.shared.generated.resources.this_device
 import com.metrolist.shared.generated.resources.clear_queue
 import com.metrolist.shared.generated.resources.repeat_mode_all
 import com.metrolist.shared.generated.resources.repeat_mode_off
@@ -220,6 +224,13 @@ object ComposeTrayManager {
         val strRepeatAll = stringResource(Res.string.repeat_mode_all)
         val strRepeatOne = stringResource(Res.string.repeat_mode_one)
         val strTrayPlayMode = stringResource(Res.string.tray_play_mode)
+        val strDevices = stringResource(Res.string.connected_devices)
+        val strThisDevice = stringResource(Res.string.this_device)
+        // Re-read on every Device Connect change, so the submenu follows peers coming and going and transfers.
+        val deviceState by DesktopDeviceConnect.manager.state.collectAsState()
+        val syncState by DesktopDeviceConnect.manager.remote.state.collectAsState()
+        val deviceTargets =
+            deviceTargets(deviceState.localDeviceId, syncState.sessionId != null, syncState.targetId, deviceState.peers)
         val strRestartQueue = stringResource(Res.string.restart_queue)
         val strClearQueue = stringResource(Res.string.clear_queue)
 
@@ -324,6 +335,17 @@ object ComposeTrayManager {
                     ) { PlayerState.cycleRepeatMode() }
                     Item(label = strRestartQueue, isEnabled = hasQueue) { PlayerState.restartQueue() }
                     Item(label = strClearQueue, isEnabled = hasQueue) { PlayerState.clearQueue() }
+
+                    if (deviceTargets.isNotEmpty()) {
+                        SubMenu(label = strDevices) {
+                            deviceTargets.forEach { target ->
+                                val name = if (target.isLocal) strThisDevice else target.name.ifBlank { strUnknown }
+                                Item(label = if (target.isCurrent) "✓ $name" else name, isEnabled = !target.isCurrent) {
+                                    DesktopDeviceConnect.manager.remote.transferTo(target.id)
+                                }
+                            }
+                        }
+                    }
 
                     Divider()
                 }

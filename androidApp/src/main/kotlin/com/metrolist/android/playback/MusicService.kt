@@ -932,7 +932,16 @@ class MusicService :
                         sync.sessionId != null,
                         sync.targetId,
                         devices.peers,
-                    )
+                    ).also {
+                        Timber.tag("DeviceSwitch").i(
+                            "action=%s local='%s' session=%s target=%s peers=%s",
+                            it?.label,
+                            devices.localDeviceId,
+                            sync.sessionId,
+                            sync.targetId,
+                            devices.peers.map { p -> "${p.name}:${p.state}" },
+                        )
+                    }
                 }.distinctUntilChanged()
             combine(
                 player.currentSong,

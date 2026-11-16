@@ -348,6 +348,7 @@ class MediaSessionPlayer(
     private val awaitLikes: suspend () -> Unit = {},
     private val extendPlaylistBeforeSkip: () -> Boolean = { false },
     private val embeddedArtworkLoader: suspend (String) -> ByteArray? = { null },
+    private val externalVolumeRoute: ExternalVolumeRoute? = null,
 ) : Player {
     companion object {
         const val TAG = "MediaSessionPlayer"
@@ -519,6 +520,18 @@ class MediaSessionPlayer(
                 publishTimeline(Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE)
             }
         }
+        externalVolumeRoute?.let { route ->
+            scope.launch {
+                route.state.collectLatest { volume ->
+                    routedVolume = volume
+                    listeners.forEach { listener ->
+                        listener.onDeviceInfoChanged(getDeviceInfo())
+                        listener.onDeviceVolumeChanged(getDeviceVolume(), isDeviceMuted)
+                        listener.onAvailableCommandsChanged(getAvailableCommands())
+                    }
+                }
+            }
+        }
         remotePlaybackState?.let { state ->
             scope.launch {
                 state
@@ -546,6 +559,14 @@ class MediaSessionPlayer(
             }
         }
     }
+
+    // Volume of another device (KDE Connect's session) that this session's volume controls are routed to, when any.
+    @Volatile
+    private var routedVolume: Float? = null
+
+    private fun castConnected(): Boolean = remotePlaybackState?.value?.isConnected == true
+
+    private fun routesVolume(): Boolean = !castConnected() && routedVolume != null
 
     private fun publishTimeline(reason: Int) {
         val timeline = getCurrentTimeline()
@@ -801,7 +822,7 @@ class MediaSessionPlayer(
     override fun getCurrentCues(): CueGroup = CueGroup.EMPTY_TIME_ZERO
 
     override fun getDeviceInfo(): DeviceInfo =
-        if (remotePlaybackState?.value?.isConnected == true) {
+        if (castConnected() || routesVolume()) {
             DeviceInfo
                 .Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE)
                 .setMinVolume(0)
@@ -811,18 +832,22 @@ class MediaSessionPlayer(
             DeviceInfo.UNKNOWN
         }
 
-    override fun getDeviceVolume(): Int = ((remotePlaybackState?.value?.volume ?: 0f) * 100).toInt().coerceIn(0, 100)
+    override fun getDeviceVolume(): Int {
+        val volume = if (routesVolume()) routedVolume else remotePlaybackState?.value?.volume
+        return ((volume ?: 0f) * 100).toInt().coerceIn(0, 100)
+    }
 
-    override fun isDeviceMuted(): Boolean = remotePlaybackState?.value?.isConnected == true && getDeviceVolume() == 0
+    override fun isDeviceMuted(): Boolean = (castConnected() || routesVolume()) && getDeviceVolume() == 0
 
     override fun setDeviceVolume(
         volume: Int,
         flags: Int,
     ) {
-        if (remotePlaybackState?.value?.isConnected != true) return
+        val routed = routesVolume()
+        if (!castConnected() && !routed) return
         val normalized = volume.coerceIn(0, 100) / 100f
         remoteVolumeTracker.observe(normalized)
-        onRemoteVolumeChange(normalized)
+        if (routed) externalVolumeRoute?.setVolume(normalized) else onRemoteVolumeChange(normalized)
     }
 
     override fun setDeviceMuted(
@@ -968,7 +993,7 @@ class MediaSessionPlayer(
                     Player.COMMAND_GET_TIMELINE,
                     Player.COMMAND_GET_DEVICE_VOLUME,
                 )
-        if (remotePlaybackState?.value?.isConnected == true) {
+        if (castConnected() || routesVolume()) {
             builder.addAll(
                 Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS,
                 Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS,

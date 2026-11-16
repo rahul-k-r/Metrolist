@@ -502,6 +502,13 @@ class MusicService :
                 onRemoteVolumeChange = ::setCastVolume,
                 onQueueChanged = ::synchronizeMediaSessionQueue,
                 extendPlaylistBeforeSkip = ::extendPlaylistBeforeSkip,
+                externalVolumeRoute =
+                    KdeConnectVolumeRoute(
+                        applicationContext,
+                        AndroidDeviceConnect.manager.remote.state
+                            .map { AndroidDeviceConnect.manager.remote.isFollowing }
+                            .distinctUntilChanged(),
+                    ),
                 embeddedArtworkLoader = { url -> withContext(Dispatchers.IO) { loadEmbeddedArtwork(applicationContext, url) } },
                 mediaItemResolver = automotiveLibrary::resolveCachedSong,
                 automotivePlaybackRequestGate = automotivePlaybackRequestGate,

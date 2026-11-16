@@ -1998,6 +1998,47 @@ class MediaSessionPlayerTest {
     }
 
     @Test
+    fun routedVolumeDrivesDeviceVolumeAndStopsWhenTheRouteEnds() {
+        val backend = RecordingPlaybackPlayer(listOf(song("a")))
+        val routed = MutableStateFlow<Float?>(0.4f)
+        val sent = mutableListOf<Float>()
+        val route =
+            object : ExternalVolumeRoute {
+                override val state = routed
+
+                override fun setVolume(level: Float) {
+                    sent += level
+                }
+            }
+        val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
+        try {
+            val adapter =
+                MediaSessionPlayer(
+                    backend.player,
+                    MutableStateFlow(Player.REPEAT_MODE_OFF),
+                    isPlaybackLockedProvider = { false },
+                    isPlaybackLockedFlow = MutableStateFlow(false),
+                    externalVolumeRoute = route,
+                    scope = scope,
+                )
+            assertEquals(androidx.media3.common.DeviceInfo.PLAYBACK_TYPE_REMOTE, adapter.deviceInfo.playbackType)
+            assertEquals(40, adapter.deviceVolume)
+            assertTrue(adapter.availableCommands.contains(Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS))
+
+            adapter.setDeviceVolume(75, 0)
+            adapter.increaseDeviceVolume()
+            assertEquals(listOf(0.75f, 0.45f), sent)
+
+            routed.value = null
+            assertEquals(androidx.media3.common.DeviceInfo.UNKNOWN, adapter.deviceInfo)
+            adapter.setDeviceVolume(10, 0)
+            assertEquals(2, sent.size)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
     fun queueAdditionsRecheckBlockedSongs() {
         val tracks = listOf(song("a"), song("blocked"), song("allowed"))
         val backend = RecordingPlaybackPlayer(tracks.take(1))

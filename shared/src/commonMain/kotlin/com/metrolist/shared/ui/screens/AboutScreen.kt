@@ -215,6 +215,16 @@ fun AboutScreen(
             )
 
             CollaboratorsList(
+                contributors = listOf(AboutContributors.forkMaintainer),
+                text = text,
+                title = text.forkSection,
+                avatarSize = 64.dp,
+                colorScheme = colorScheme,
+                onContributorClick = { selectedContributor = it },
+                onContributorLongClick = onContributorLongClick,
+            )
+
+            CollaboratorsList(
                 contributors = listOf(AboutContributors.lead),
                 text = text,
                 title = text.creatorSection,

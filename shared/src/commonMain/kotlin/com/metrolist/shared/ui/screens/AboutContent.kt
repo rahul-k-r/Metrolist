@@ -93,6 +93,7 @@ fun rememberAboutScreenText(): AboutScreenText =
     )
 
 enum class AboutContributorRole {
+    FORK_MAINTAINER,
     CREATOR,
     ANDROID_LEAD,
     DESKTOP_LEAD,
@@ -135,6 +136,15 @@ data class AboutContributor(
 }
 
 object AboutContributors {
+    val forkMaintainer: AboutContributor =
+        AboutContributor(
+            name = "Rahul",
+            role = AboutContributorRole.FORK_MAINTAINER,
+            githubHandle = "rahul-k-r",
+            websiteUrl = "https://github.com/rahul-k-r/Metrolist",
+            avatarShape = AboutAvatarShape.SUNNY,
+        )
+
     val lead: AboutContributor =
         AboutContributor(
             name = "Mo Agamy",
@@ -273,9 +283,13 @@ data class AboutScreenText(
     val github: String,
     val license: String,
     val licenseDescription: String,
+    // Fork-only labels (not localized) kept as defaults to avoid touching every constructor.
+    val forkSection: String = "This fork",
+    val forkMaintainerRole: String = "Fork maintainer",
 ) {
     fun roleLabel(role: AboutContributorRole): String =
         when (role) {
+            AboutContributorRole.FORK_MAINTAINER -> forkMaintainerRole
             AboutContributorRole.CREATOR -> creatorRole
             AboutContributorRole.ANDROID_LEAD -> androidLeadRole
             AboutContributorRole.DESKTOP_LEAD -> desktopLeadRole
@@ -332,6 +346,7 @@ fun AuthorInfoSheet(
 ) {
     val roleLabel =
         when (contributor.role) {
+            AboutContributorRole.FORK_MAINTAINER -> "Fork maintainer"
             AboutContributorRole.CREATOR -> sharedStringResource(Res.string.credits_creator)
             AboutContributorRole.ANDROID_LEAD -> sharedStringResource(Res.string.credits_android_lead)
             AboutContributorRole.DESKTOP_LEAD -> sharedStringResource(Res.string.credits_desktop_lead)

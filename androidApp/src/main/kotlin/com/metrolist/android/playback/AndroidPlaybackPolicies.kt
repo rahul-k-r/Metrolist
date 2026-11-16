@@ -707,6 +707,8 @@ internal val untrustedTransportPlayerCommandCodes =
         Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
         Player.COMMAND_SEEK_TO_DEFAULT_POSITION,
         Player.COMMAND_SEEK_TO_MEDIA_ITEM,
+        Player.COMMAND_SET_REPEAT_MODE,
+        Player.COMMAND_SET_SHUFFLE_MODE,
         Player.COMMAND_SET_VOLUME,
         Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS,
         Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS,

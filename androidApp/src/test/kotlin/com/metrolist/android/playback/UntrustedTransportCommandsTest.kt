@@ -20,6 +20,8 @@ class UntrustedTransportCommandsTest {
             Player.COMMAND_GET_CURRENT_MEDIA_ITEM,
             Player.COMMAND_SEEK_TO_MEDIA_ITEM,
             Player.COMMAND_SET_VOLUME,
+            Player.COMMAND_SET_REPEAT_MODE,
+            Player.COMMAND_SET_SHUFFLE_MODE,
         ).forEach { assertTrue("missing $it", commands.contains(it)) }
     }
 

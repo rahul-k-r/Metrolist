@@ -943,19 +943,22 @@ class MusicService :
                 _shuffleModeEnabled,
                 deviceSwitch,
             ) { song, _, repeatMode, shuffle, switch ->
-                listOf(song?.id, song?.id?.let(SongLikeState::isLiked), repeatMode, shuffle, switch)
+                listOf(song?.id, song?.id?.let(SongLikeState::isLiked), repeatMode, shuffle, switch, Settings.shared.deviceSwitchInNotification)
             }.distinctUntilChanged().collect {
+                val switchButton = (it[4] as? DeviceSwitchAction)?.let(::createDeviceSwitchButton)
+                // The device button takes the like button's back-secondary slot; like drops to overflow.
+                val deviceFirst = switchButton != null && Settings.shared.deviceSwitchInNotification
                 mediaSession?.setMediaButtonPreferences(
                     ImmutableList.copyOf(
                         transportButtons() +
                             listOfNotNull(
-                                createLikeButton(),
-                                // Ahead of repeat so it wins the notification's forward-secondary slot.
-                                (it.last() as? DeviceSwitchAction)?.let(::createDeviceSwitchButton),
+                                if (deviceFirst) switchButton else null,
+                                createLikeButton(overflowOnly = deviceFirst),
                                 createRepeatButton(),
                                 createShuffleButton(),
                                 createRadioButton(startRadioLabel),
                                 createAddToPlaylistButton(),
+                                if (deviceFirst) null else switchButton,
                             ),
                     ),
                 )
@@ -2127,7 +2130,7 @@ class MusicService :
             .setSlots(CommandButton.SLOT_FORWARD)
             .build()
 
-    private fun createLikeButton(): CommandButton {
+    private fun createLikeButton(overflowOnly: Boolean = false): CommandButton {
         val song = player.currentSong.value
         val isLiked = song?.id?.let(SongLikeState::isLiked) == true
         return CommandButton
@@ -2135,7 +2138,7 @@ class MusicService :
             .setCustomIconResId(if (isLiked) R.drawable.ic_notification_heart else R.drawable.ic_notification_heart_outline)
             .setDisplayName(getString(if (isLiked) R.string.remove_from_favorites else R.string.add_to_favorites))
             .setSessionCommand(MediaSessionConstants.CommandToggleLike)
-            .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
+            .setSlots(*if (overflowOnly) intArrayOf(CommandButton.SLOT_OVERFLOW) else intArrayOf(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW))
             .setEnabled(song != null)
             .build()
     }
@@ -2195,7 +2198,7 @@ class MusicService :
             .setCustomIconResId(R.drawable.ic_notification_devices)
             .setDisplayName(action.label)
             .setSessionCommand(MediaSessionConstants.CommandSwitchDevice)
-            .setSlots(CommandButton.SLOT_FORWARD_SECONDARY, CommandButton.SLOT_OVERFLOW)
+            .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
             .build()
 
     private fun createRadioButton(label: String): CommandButton =
@@ -3031,6 +3034,12 @@ class MusicService :
                 controller.isTrusted,
                 controller.controllerVersion,
             )
+            android.util.Log.i(
+                "ControllerConnect",
+                "pkg=${controller.packageName} uid=${controller.uid} verified=${controller.isPackageNameVerified} " +
+                    "trusted=${controller.isTrusted} version=${controller.controllerVersion} " +
+                    "uidPackages=${packageManager.getPackagesForUid(controller.uid)?.toList()}",
+            )
             if (!canBrowseLibrary(session, controller)) {
                 val authorized = isAuthorizedExternalMediaController(controller)
                 val commands = MediaSession.ConnectionResult.DEFAULT_UNTRUSTED_SESSION_COMMANDS.buildUpon()
@@ -3041,6 +3050,9 @@ class MusicService :
                     commands.add(MediaSessionConstants.CommandToggleRepeat)
                     commands.add(MediaSessionConstants.CommandSwitchDevice)
                 }
+                // Shuffle and repeat are safe for the unverified Wear OS bridge too; like and queue edits stay gated.
+                commands.add(MediaSessionConstants.CommandToggleShuffle)
+                commands.add(MediaSessionConstants.CommandToggleRepeat)
                 // Unverified bridges (the Wear OS media bridge) show the same artwork as the notification; the provider
                 // still checks the real calling package, so this only lets that package read what the session publishes.
                 MediaArtworkProvider.allowedPackages += controller.packageName

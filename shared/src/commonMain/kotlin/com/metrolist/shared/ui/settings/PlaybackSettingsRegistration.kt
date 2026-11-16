@@ -166,6 +166,12 @@ internal fun SettingsUiRegistryBuilder.registerPlaybackSettings(host: SharedSett
             }
             if (host.platform == SettingsPlatform.ANDROID) {
                 switch(
+                    id = "deviceSwitchInNotification",
+                    title = stringResource(Res.string.device_switch_in_notification),
+                    description = stringResource(Res.string.device_switch_in_notification_desc),
+                    checked = settings.deviceSwitchInNotification,
+                ) { settings.deviceSwitchInNotification = it }
+                switch(
                     id = "audioTrackPlaybackParams",
                     title = stringResource(Res.string.audio_track_playback_params),
                     description = stringResource(Res.string.audio_track_playback_params_description),

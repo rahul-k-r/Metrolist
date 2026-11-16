@@ -423,6 +423,9 @@ class Settings(
     var persistentShuffleAcrossQueues by preference(false)
     var useLegacyShuffle by preference(UseLegacyShuffleKey, true)
     var rememberShuffleAndRepeat by preference(true)
+
+    // Android notification: the device button takes the like button's slot.
+    var deviceSwitchInNotification by preference(true)
     var shuffleEnabled by preference(false)
     var androidAutoTargetPlaylist by preference(AndroidAutoTargetPlaylistKey, "")
     var androidAutoPinnedPlaylistsJson by preference(AndroidAutoPinnedPlaylistsJsonKey, "[]")

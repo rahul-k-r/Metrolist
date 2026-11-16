@@ -506,6 +506,10 @@ class MusicService :
                 automotivePlaybackRequestGate = automotivePlaybackRequestGate,
                 deviceConnectInterceptor = AndroidDeviceConnect::intercept,
                 isDeviceConnectFollowing = { AndroidDeviceConnect.manager.remote.isFollowing },
+                deviceConnectFollowingFlow =
+                    AndroidDeviceConnect.manager.remote.state
+                        .map { AndroidDeviceConnect.manager.remote.isFollowing }
+                        .distinctUntilChanged(),
                 scope = serviceScope,
                 awaitLikes = { (application as App).startup.await() },
             )
@@ -3032,8 +3036,10 @@ class MusicService :
                     commands.add(MediaSessionConstants.CommandToggleShuffle)
                     commands.add(MediaSessionConstants.CommandToggleRepeat)
                     commands.add(MediaSessionConstants.CommandSwitchDevice)
-                    MediaArtworkProvider.allowedPackages += controller.packageName
                 }
+                // Unverified bridges (the Wear OS media bridge) show the same artwork as the notification; the provider
+                // still checks the real calling package, so this only lets that package read what the session publishes.
+                MediaArtworkProvider.allowedPackages += controller.packageName
                 return MediaSession.ConnectionResult.accept(
                     commands.build(),
                     if (isAssistantController(controller)) {

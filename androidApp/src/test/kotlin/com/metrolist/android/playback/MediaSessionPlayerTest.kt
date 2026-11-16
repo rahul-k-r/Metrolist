@@ -1998,44 +1998,6 @@ class MediaSessionPlayerTest {
     }
 
     @Test
-    fun followingAnotherDeviceRoutesDeviceVolumeToIt() {
-        val backend = RecordingPlaybackPlayer(listOf(song("a")))
-        val following = MutableStateFlow(true)
-        val sent = mutableListOf<DcPlaybackCommand>()
-        val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
-        try {
-            val adapter =
-                MediaSessionPlayer(
-                    backend.player,
-                    MutableStateFlow(Player.REPEAT_MODE_OFF),
-                    isPlaybackLockedProvider = { false },
-                    isPlaybackLockedFlow = MutableStateFlow(false),
-                    isDeviceConnectFollowing = { following.value },
-                    deviceConnectFollowingFlow = following,
-                    deviceConnectInterceptor = { command, _ -> sent += command; true },
-                    scope = scope,
-                )
-            backend.volume.value = 0.4f
-            assertEquals(androidx.media3.common.DeviceInfo.PLAYBACK_TYPE_REMOTE, adapter.deviceInfo.playbackType)
-            assertEquals(40, adapter.deviceVolume)
-            assertTrue(adapter.availableCommands.contains(Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS))
-            assertTrue(adapter.availableCommands.contains(Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS))
-
-            adapter.setDeviceVolume(75, 0)
-            adapter.increaseDeviceVolume()
-            assertEquals(listOf(DcPlaybackAction.VOLUME, DcPlaybackAction.VOLUME), sent.map { it.action })
-            assertEquals(listOf(0.75f, 0.45f), sent.map { it.volume })
-
-            following.value = false
-            assertEquals(androidx.media3.common.DeviceInfo.UNKNOWN, adapter.deviceInfo)
-            adapter.setDeviceVolume(10, 0)
-            assertEquals(2, sent.size)
-        } finally {
-            scope.cancel()
-        }
-    }
-
-    @Test
     fun queueAdditionsRecheckBlockedSongs() {
         val tracks = listOf(song("a"), song("blocked"), song("allowed"))
         val backend = RecordingPlaybackPlayer(tracks.take(1))

@@ -506,10 +506,6 @@ class MusicService :
                 automotivePlaybackRequestGate = automotivePlaybackRequestGate,
                 deviceConnectInterceptor = AndroidDeviceConnect::intercept,
                 isDeviceConnectFollowing = { AndroidDeviceConnect.manager.remote.isFollowing },
-                deviceConnectFollowingFlow =
-                    AndroidDeviceConnect.manager.remote.state
-                        .map { AndroidDeviceConnect.manager.remote.isFollowing }
-                        .distinctUntilChanged(),
                 scope = serviceScope,
                 awaitLikes = { (application as App).startup.await() },
             )

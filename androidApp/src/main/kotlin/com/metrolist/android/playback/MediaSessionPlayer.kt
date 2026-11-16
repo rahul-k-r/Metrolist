@@ -51,7 +51,6 @@ import com.metrolist.shared.youtube.playback.PlaybackNetworkStateStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -344,7 +343,6 @@ class MediaSessionPlayer(
     private val automotivePlaybackRequestGate: AutomotivePlaybackRequestGate? = null,
     private val isAutomotiveSongBlocked: (SongItem) -> Boolean = { it.isUnavailable || BlockedContent.isBlocked(it) },
     private val isDeviceConnectFollowing: () -> Boolean = { false },
-    private val deviceConnectFollowingFlow: Flow<Boolean>? = null,
     private val deviceConnectInterceptor: (DcPlaybackCommand, MusicQueueSnapshot?) -> Boolean = { _, _ -> false },
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob()),
     private val awaitLikes: suspend () -> Unit = {},
@@ -534,25 +532,7 @@ class MediaSessionPlayer(
                     }
             }
         }
-        // While following a Device Connect target, the phone/watch volume controls drive that device.
-        deviceConnectFollowingFlow?.let { following ->
-            scope.launch {
-                combine(following, musicPlayer.volume) { isFollowing, volume -> isFollowing to volume }
-                    .distinctUntilChanged()
-                    .collectLatest {
-                        listeners.forEach { listener ->
-                            listener.onDeviceInfoChanged(getDeviceInfo())
-                            listener.onDeviceVolumeChanged(getDeviceVolume(), isDeviceMuted)
-                            listener.onAvailableCommandsChanged(getAvailableCommands())
-                        }
-                    }
-            }
-        }
     }
-
-    private fun castConnected(): Boolean = remotePlaybackState?.value?.isConnected == true
-
-    private fun followsDeviceConnect(): Boolean = !castConnected() && isDeviceConnectFollowing()
 
     private fun publishTimeline(reason: Int) {
         val timeline = getCurrentTimeline()
@@ -790,7 +770,7 @@ class MediaSessionPlayer(
     override fun getCurrentCues(): CueGroup = CueGroup.EMPTY_TIME_ZERO
 
     override fun getDeviceInfo(): DeviceInfo =
-        if (castConnected() || followsDeviceConnect()) {
+        if (remotePlaybackState?.value?.isConnected == true) {
             DeviceInfo
                 .Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE)
                 .setMinVolume(0)
@@ -800,22 +780,18 @@ class MediaSessionPlayer(
             DeviceInfo.UNKNOWN
         }
 
-    override fun getDeviceVolume(): Int {
-        val volume = if (followsDeviceConnect()) musicPlayer.volume.value else remotePlaybackState?.value?.volume ?: 0f
-        return (volume * 100).toInt().coerceIn(0, 100)
-    }
+    override fun getDeviceVolume(): Int = ((remotePlaybackState?.value?.volume ?: 0f) * 100).toInt().coerceIn(0, 100)
 
-    override fun isDeviceMuted(): Boolean = (castConnected() || followsDeviceConnect()) && getDeviceVolume() == 0
+    override fun isDeviceMuted(): Boolean = remotePlaybackState?.value?.isConnected == true && getDeviceVolume() == 0
 
     override fun setDeviceVolume(
         volume: Int,
         flags: Int,
     ) {
-        val following = followsDeviceConnect()
-        if (!castConnected() && !following) return
+        if (remotePlaybackState?.value?.isConnected != true) return
         val normalized = volume.coerceIn(0, 100) / 100f
         remoteVolumeTracker.observe(normalized)
-        if (following) interceptDeviceConnect(DcPlaybackCommand(DcPlaybackAction.VOLUME, volume = normalized)) else onRemoteVolumeChange(normalized)
+        onRemoteVolumeChange(normalized)
     }
 
     override fun setDeviceMuted(
@@ -961,7 +937,7 @@ class MediaSessionPlayer(
                     Player.COMMAND_GET_TIMELINE,
                     Player.COMMAND_GET_DEVICE_VOLUME,
                 )
-        if (castConnected() || followsDeviceConnect()) {
+        if (remotePlaybackState?.value?.isConnected == true) {
             builder.addAll(
                 Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS,
                 Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS,

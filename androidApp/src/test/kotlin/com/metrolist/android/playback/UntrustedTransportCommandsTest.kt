@@ -18,6 +18,8 @@ class UntrustedTransportCommandsTest {
             Player.COMMAND_SEEK_TO_PREVIOUS,
             Player.COMMAND_GET_TIMELINE,
             Player.COMMAND_GET_CURRENT_MEDIA_ITEM,
+            Player.COMMAND_SEEK_TO_MEDIA_ITEM,
+            Player.COMMAND_SET_VOLUME,
         ).forEach { assertTrue("missing $it", commands.contains(it)) }
     }
 
@@ -27,8 +29,6 @@ class UntrustedTransportCommandsTest {
         listOf(
             Player.COMMAND_SET_MEDIA_ITEM,
             Player.COMMAND_CHANGE_MEDIA_ITEMS,
-            Player.COMMAND_SEEK_TO_MEDIA_ITEM,
-            Player.COMMAND_SET_VOLUME,
         ).forEach { assertFalse("unexpected $it", commands.contains(it)) }
     }
 }

@@ -690,8 +690,9 @@ internal fun externalTransportPlayerCommands(): Player.Commands =
         .build()
 
 /**
- * Transport-only commands for controllers whose package can't be verified (e.g. the Wear OS media bridge). Media3's
- * untrusted default is read-only, which leaves a watch able to show the queue but not play, pause or skip.
+ * Transport, queue-selection and volume commands for controllers whose package can't be verified (e.g. the Wear OS
+ * media bridge). Media3's untrusted default is read-only, which leaves a watch able to show the queue but not use it.
+ * Replacing the queue's contents stays excluded.
  */
 internal val untrustedTransportPlayerCommandCodes =
     setOf(
@@ -705,6 +706,10 @@ internal val untrustedTransportPlayerCommandCodes =
         Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
         Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
         Player.COMMAND_SEEK_TO_DEFAULT_POSITION,
+        Player.COMMAND_SEEK_TO_MEDIA_ITEM,
+        Player.COMMAND_SET_VOLUME,
+        Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS,
+        Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS,
     )
 
 internal fun untrustedTransportPlayerCommands(): Player.Commands =

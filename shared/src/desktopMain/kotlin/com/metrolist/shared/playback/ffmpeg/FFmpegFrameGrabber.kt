@@ -1267,9 +1267,10 @@ class FFmpegFrameGrabber : FrameGrabber {
                 planar_dst_ptr_v!!.setDirectAddress(vAddress, (vStride * chromaH).toLong())
 
                 if (planar_src_data == null) planar_src_data = PointerPointer<BytePointer>(4).retainReference()
-                if (planar_src_linesize == null) planar_src_linesize = IntPointer(4).retainReference()
+                // Long literal: IntPointer(4) in Kotlin binds the varargs constructor (one int), not a 4-int allocation.
+                if (planar_src_linesize == null) planar_src_linesize = IntPointer(4L).retainReference()
                 if (planar_dst_data == null) planar_dst_data = PointerPointer<BytePointer>(4).retainReference()
-                if (planar_dst_linesize == null) planar_dst_linesize = IntPointer(4).retainReference()
+                if (planar_dst_linesize == null) planar_dst_linesize = IntPointer(4L).retainReference()
 
                 planar_src_data!!.put(0L, srcData0)
                 planar_src_data!!.put(1L, srcData1)

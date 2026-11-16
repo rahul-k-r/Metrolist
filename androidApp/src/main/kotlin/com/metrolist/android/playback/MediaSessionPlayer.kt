@@ -347,6 +347,7 @@ class MediaSessionPlayer(
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob()),
     private val awaitLikes: suspend () -> Unit = {},
     private val extendPlaylistBeforeSkip: () -> Boolean = { false },
+    private val embeddedArtworkLoader: suspend (String) -> ByteArray? = { null },
 ) : Player {
     companion object {
         const val TAG = "MediaSessionPlayer"
@@ -450,6 +451,18 @@ class MediaSessionPlayer(
                             it.onPlayWhenReadyChanged(state.third, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
                         }
                     }
+                }
+        }
+        scope.launch {
+            musicPlayer.currentSong
+                .map { it?.thumbnail }
+                .distinctUntilChanged()
+                .collectLatest { url ->
+                    embeddedArtwork = null
+                    if (url.isNullOrBlank()) return@collectLatest
+                    val bytes = runCatching { embeddedArtworkLoader(url) }.getOrNull() ?: return@collectLatest
+                    embeddedArtwork = url to bytes
+                    listeners.forEach { it.onMediaMetadataChanged(getMediaMetadata()) }
                 }
         }
         scope.launch {
@@ -741,13 +754,14 @@ class MediaSessionPlayer(
         val entry =
             musicPlayer.queueState.value.entries
                 .getOrNull(getCurrentMediaItemIndex())
-        return currentItemCache.get(entry?.song ?: musicPlayer.currentSong.value, entry?.key)
+        return currentItemCache.get(entry?.song ?: musicPlayer.currentSong.value, entry?.key)?.withEmbeddedArtwork()
     }
 
     override fun getMediaMetadata(): MediaMetadata =
         metadataItemCache
             .get(musicPlayer.currentSong.value)
             ?.mediaMetadata
+            ?.withEmbeddedArtwork()
             ?.buildUpon()
             ?.setUserRating(
                 ThumbRating(
@@ -756,6 +770,23 @@ class MediaSessionPlayer(
                         ?.let(SongLikeState::isLiked) == true,
                 ),
             )?.build() ?: MediaMetadata.EMPTY
+
+    @Volatile
+    private var embeddedArtwork: Pair<String, ByteArray>? = null
+    private var decoratedItem: Triple<MediaItem, ByteArray, MediaItem>? = null
+
+    private fun MediaMetadata.withEmbeddedArtwork(): MediaMetadata {
+        val (url, bytes) = embeddedArtwork ?: return this
+        if (url != musicPlayer.currentSong.value?.thumbnail) return this
+        return buildUpon().setArtworkData(bytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER).build()
+    }
+
+    // Reuses one decorated instance per source item so controllers do not see a new item on every read.
+    private fun MediaItem.withEmbeddedArtwork(): MediaItem {
+        val bytes = embeddedArtwork?.takeIf { it.first == musicPlayer.currentSong.value?.thumbnail }?.second ?: return this
+        decoratedItem?.takeIf { it.first === this && it.second === bytes }?.let { return it.third }
+        return buildUpon().setMediaMetadata(mediaMetadata.withEmbeddedArtwork()).build().also { decoratedItem = Triple(this, bytes, it) }
+    }
 
     override fun getPlaylistMetadata(): MediaMetadata = MediaMetadata.EMPTY
 

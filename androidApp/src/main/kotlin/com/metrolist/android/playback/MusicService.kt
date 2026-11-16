@@ -502,6 +502,7 @@ class MusicService :
                 onRemoteVolumeChange = ::setCastVolume,
                 onQueueChanged = ::synchronizeMediaSessionQueue,
                 extendPlaylistBeforeSkip = ::extendPlaylistBeforeSkip,
+                embeddedArtworkLoader = { url -> withContext(Dispatchers.IO) { loadEmbeddedArtwork(applicationContext, url) } },
                 mediaItemResolver = automotiveLibrary::resolveCachedSong,
                 automotivePlaybackRequestGate = automotivePlaybackRequestGate,
                 deviceConnectInterceptor = AndroidDeviceConnect::intercept,

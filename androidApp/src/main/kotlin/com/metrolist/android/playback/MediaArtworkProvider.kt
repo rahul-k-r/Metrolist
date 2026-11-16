@@ -25,6 +25,7 @@ import kotlinx.coroutines.withTimeout
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.jetbrains.compose.resources.getDrawableResourceBytes
 import org.jetbrains.compose.resources.getSystemResourceEnvironment
+import timber.log.Timber
 import java.io.File
 import java.io.FileNotFoundException
 import java.util.concurrent.ConcurrentHashMap
@@ -67,6 +68,15 @@ class MediaArtworkProvider : ContentProvider() {
         // Cached artwork reveals listening history, so only trusted connected media controllers may read it.
         internal val allowedPackages: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
+        // The watch bridge can load artwork through these processes rather than the controller's own package.
+        private val wearBridgePackages =
+            setOf(
+                "com.google.android.wearable.app",
+                "com.google.android.gms",
+                "com.google.android.clockwork.home",
+                "com.samsung.android.app.watchmanager",
+            )
+
         // Queue and Auto browsing can evict approvals while the current metadata still holds its URI.
         @Volatile
         internal var currentArtwork: Pair<String, String>? = null
@@ -93,7 +103,9 @@ class MediaArtworkProvider : ContentProvider() {
         if (mode != "r" || uri.path != "/artwork") throw FileNotFoundException()
         val caller = callingPackage
         // A null caller is an in-process call, not a binder request from another app.
-        if (caller != null && caller != context?.packageName && caller !in allowedPackages && !isSystemMediaUi()) {
+        if (caller != null && caller != context?.packageName && caller !in allowedPackages && caller !in wearBridgePackages && !isSystemMediaUi()) {
+            // Naming the denied package is what identifies the process the watch loads artwork through.
+            Timber.tag("MediaArtwork").w("artwork denied for %s", caller)
             throw SecurityException()
         }
         val key = uri.getQueryParameter("key") ?: throw FileNotFoundException()

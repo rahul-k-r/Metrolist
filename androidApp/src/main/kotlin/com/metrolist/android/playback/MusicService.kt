@@ -3007,7 +3007,12 @@ class MusicService :
 
     private fun isAuthorizedExternalMediaController(controller: MediaSession.ControllerInfo): Boolean =
         controller.isPackageNameVerified ||
-            packageManager.getPackagesForUid(controller.uid)?.contains(controller.packageName) == true
+            packageManager.getPackagesForUid(controller.uid)?.contains(controller.packageName) == true ||
+            // The Wear OS companion is the phone-side bridge for the watch; its package must still own the calling uid.
+            (controller.packageName in WEAR_COMPANION_PACKAGES && controller.uid == packageUid(controller.packageName))
+
+    private fun packageUid(packageName: String): Int =
+        runCatching { packageManager.getApplicationInfo(packageName, 0).uid }.getOrDefault(-1)
 
     private fun isAssistantController(controller: MediaSession.ControllerInfo): Boolean {
         val packages =

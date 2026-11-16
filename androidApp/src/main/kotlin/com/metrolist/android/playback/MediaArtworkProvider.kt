@@ -29,6 +29,16 @@ import java.io.File
 import java.io.FileNotFoundException
 import java.util.concurrent.ConcurrentHashMap
 
+// Phone-side bridges for Wear OS watches; used for artwork access and controller authorization.
+internal val WEAR_COMPANION_PACKAGES =
+    setOf(
+        "com.google.android.apps.wear.companion",
+        "com.google.android.wearable.app",
+        "com.google.android.gms",
+        "com.google.android.clockwork.home",
+        "com.samsung.android.app.watchmanager",
+    )
+
 internal fun mediaArtworkUri(
     context: Context,
     url: String?,
@@ -67,15 +77,6 @@ class MediaArtworkProvider : ContentProvider() {
         // Cached artwork reveals listening history, so only trusted connected media controllers may read it.
         internal val allowedPackages: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
-        // The watch bridge can load artwork through these processes rather than the controller's own package.
-        private val wearBridgePackages =
-            setOf(
-                "com.google.android.wearable.app",
-                "com.google.android.gms",
-                "com.google.android.clockwork.home",
-                "com.samsung.android.app.watchmanager",
-            )
-
         // Queue and Auto browsing can evict approvals while the current metadata still holds its URI.
         @Volatile
         internal var currentArtwork: Pair<String, String>? = null
@@ -103,7 +104,7 @@ class MediaArtworkProvider : ContentProvider() {
         val caller = callingPackage
         android.util.Log.i("MediaArtwork", "artwork open by $caller")
         // A null caller is an in-process call, not a binder request from another app.
-        if (caller != null && caller != context?.packageName && caller !in allowedPackages && caller !in wearBridgePackages && !isSystemMediaUi()) {
+        if (caller != null && caller != context?.packageName && caller !in allowedPackages && caller !in WEAR_COMPANION_PACKAGES && !isSystemMediaUi()) {
             // Naming the denied package is what identifies the process the watch loads artwork through.
             android.util.Log.w("MediaArtwork", "artwork denied for $caller")
             throw SecurityException()

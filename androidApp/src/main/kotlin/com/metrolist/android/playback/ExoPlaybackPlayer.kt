@@ -3226,6 +3226,13 @@ class ExoPlaybackPlayer(
                 a2dpStateChanged = a2dpStateChanged,
             )
         outputRecoveryState = decision.state
+        if (decision.yieldToRemote) {
+            // The headset moved to another device (e.g. the laptop). Rebuilding here would push audio back and take it
+            // from that device, so stop and let the user resume explicitly.
+            recordPlaybackState("Android Bluetooth output yielded to another device.")
+            exo.pause()
+            return
+        }
         if (!decision.rebuild) return
         recordPlaybackState(
             "Android Bluetooth output recovery requested.",

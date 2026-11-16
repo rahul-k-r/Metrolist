@@ -43,6 +43,7 @@ fun queueMediaMenuModel(
     onNavigateToListenTogether: (() -> Unit)?,
     onDislike: (() -> Unit)?,
     deleteUploadAction: PlayerMenuAction? = null,
+    markActions: List<PlayerMenuAction> = emptyList(),
 ): MediaMenuModel =
     MediaMenuModel(
         title = songTitle,
@@ -69,7 +70,7 @@ fun queueMediaMenuModel(
                     onRemoveFromQueue?.let {
                         action(MetrolistIcons.Outlined.Delete, stringResource(Res.string.remove_from_queue), onDismiss, it)
                     },
-                ) + queueActions(onDismiss, onPlayNext, onAddToQueue),
+                ) + queueActions(onDismiss, onPlayNext, onAddToQueue) + markActions,
                 listOfNotNull(downloadAction(MediaDownloadState.NOT_DOWNLOADED, 0, false, onDismiss, onDownload), deleteUploadAction),
                 listOfNotNull(
                     onNavigateToListenTogether?.takeIf { Settings.shared.listenTogetherEnabled }?.let {

@@ -245,6 +245,29 @@ class AudioOutputRecoveryTest {
     }
 
     @Test
+    fun headsetTakenByAnotherDeviceYieldsInsteadOfRebuilding() {
+        val pcm = earbuds.copy(pcmAccepted = true)
+        val playing = decideAudioOutputRecovery(AudioOutputRecoveryState(), pcm, true, 0, a2dpPlaying = true)
+        assertFalse(playing.yieldToRemote)
+        val first = decideAudioOutputRecovery(playing.state, pcm, true, 10_000, a2dpPlaying = false)
+        assertFalse(first.yieldToRemote)
+        val stopped = decideAudioOutputRecovery(first.state, pcm, true, 15_000, a2dpPlaying = false)
+        assertTrue(stopped.yieldToRemote)
+        assertFalse(stopped.rebuild)
+        assertFalse(stopped.state.a2dpWasPlaying)
+    }
+
+    @Test
+    fun userResumeAfterYieldingGetsTheNormalRecoveryAgain() {
+        val pcm = earbuds.copy(pcmAccepted = true)
+        val playing = decideAudioOutputRecovery(AudioOutputRecoveryState(), pcm, true, 0, a2dpPlaying = true).state
+        val resumed = decideAudioOutputRecovery(playing, pcm, true, 1_000, a2dpPlaying = false, userAction = AudioOutputUserAction.RESUME)
+        assertFalse(resumed.state.a2dpWasPlaying)
+        val stalled = decideAudioOutputRecovery(resumed.state, pcm, true, 6_000, a2dpPlaying = false)
+        assertFalse(stalled.yieldToRemote)
+    }
+
+    @Test
     fun shortReconfigurationPauseBufferingMissingPermissionAndBackpressureResetA2dpTimer() {
         val pcm = earbuds.copy(pcmAccepted = true)
         val initial = decideAudioOutputRecovery(AudioOutputRecoveryState(), pcm, true, 0, a2dpPlaying = false).state

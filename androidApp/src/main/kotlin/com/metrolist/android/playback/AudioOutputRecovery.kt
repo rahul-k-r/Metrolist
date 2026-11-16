@@ -27,6 +27,9 @@ internal data class AudioOutputRecoveryState(
     val sessionSuspect: Boolean = false,
     val pausedAtMs: Long? = null,
     val userRecoveryReason: String? = null,
+    // The headset accepted our stream in this audio session. If it later stops while we keep writing, it was taken by
+    // another source (multipoint), not a start-up fault.
+    val a2dpWasPlaying: Boolean = false,
 ) {
     fun cancelUserRecovery(): AudioOutputRecoveryState = copy(pausedAtMs = null, userRecoveryReason = null, a2dpNotPlayingSinceMs = null)
 }
@@ -35,6 +38,8 @@ internal data class AudioOutputRecoveryDecision(
     val state: AudioOutputRecoveryState,
     val rebuild: Boolean,
     val reason: String? = null,
+    /** The headset went to another device: stop sending audio rather than rebuilding, which would steal it back. */
+    val yieldToRemote: Boolean = false,
 )
 
 internal fun decideAudioOutputRecovery(
@@ -55,6 +60,7 @@ internal fun decideAudioOutputRecovery(
                 pausedAtMs = null,
                 userRecoveryReason = null,
                 a2dpNotPlayingSinceMs = null,
+                a2dpWasPlaying = false,
             )
         } else {
             state
@@ -70,8 +76,11 @@ internal fun decideAudioOutputRecovery(
                 bluetooth = signal.bluetooth,
                 pending = if (routeChanged) signal.bluetooth else session.pending,
                 attempted = if (routeChanged) false else session.attempted,
+                a2dpWasPlaying = !routeChanged && session.a2dpWasPlaying,
             )
         }
+    val wasPlaying =
+        userAction != AudioOutputUserAction.RESUME && (routed.a2dpWasPlaying || (routed.bluetooth && eligible && a2dpPlaying == true))
     val notPlayingSince =
         when {
             !routed.bluetooth || !eligible || a2dpPlaying != false || routeChanged -> null
@@ -106,8 +115,9 @@ internal fun decideAudioOutputRecovery(
             a2dpStalled -> "a2dp_not_playing"
             else -> null
         }
+    val yieldToRemote = routed.bluetooth && eligible && a2dpStalled && wasPlaying && userRecoveryReason == null
     val rebuild =
-        routed.bluetooth && reason != null && (!routed.attempted || userRecoveryReason != null) && eligible &&
+        !yieldToRemote && routed.bluetooth && reason != null && (!routed.attempted || userRecoveryReason != null) && eligible &&
             userAction != AudioOutputUserAction.PAUSE &&
             (routed.lastAttemptMs == null || nowMs - routed.lastAttemptMs >= OUTPUT_RECOVERY_BACKOFF_MS)
     return AudioOutputRecoveryDecision(
@@ -115,7 +125,8 @@ internal fun decideAudioOutputRecovery(
             pending = routed.pending && !rebuild,
             attempted = routed.attempted || rebuild,
             lastAttemptMs = if (rebuild) nowMs else routed.lastAttemptMs,
-            a2dpNotPlayingSinceMs = if (rebuild) null else notPlayingSince,
+            a2dpNotPlayingSinceMs = if (rebuild || yieldToRemote) null else notPlayingSince,
+            a2dpWasPlaying = wasPlaying && !yieldToRemote,
             sessionSuspect = suspect,
             pausedAtMs =
                 when (userAction) {
@@ -127,6 +138,7 @@ internal fun decideAudioOutputRecovery(
         ),
         rebuild,
         reason = reason.takeIf { rebuild },
+        yieldToRemote = yieldToRemote,
     )
 }
 

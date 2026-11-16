@@ -24,6 +24,7 @@ import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.ui.LocalIsTv
 import com.metrolist.shared.ui.components.rememberModalSheetState
 import com.metrolist.shared.ui.menu.QueueMenuSheetContent
+import com.metrolist.shared.ui.menu.itemMarkMenuActions
 import com.metrolist.shared.ui.menu.queueMediaMenuModel
 import com.metrolist.shared.ui.menu.rememberDeleteUploadAction
 import kotlinx.coroutines.launch
@@ -98,6 +99,7 @@ fun QueueMenu(
             onRemoveFromQueue = onRemoveFromQueue,
             onNavigateToListenTogether = onNavigateToListenTogether,
             onDislike = onDislike,
+            markActions = itemMarkMenuActions(song, onDismiss),
         )
     MediaMenuBottomSheet(onDismissRequest = onDismiss, scrollContent = false, sheetState = menuSheetState) {
         QueueMenuSheetContent(model, duration, isLiked, onLike) { actions ->

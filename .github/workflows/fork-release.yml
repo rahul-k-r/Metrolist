@@ -1,18 +1,39 @@
 name: Fork release
 
-# Builds every platform upstream targets and publishes one GitHub release tagged v<upstream>+<custom>.
+# Publishes one GitHub release tagged v<upstream>+<custom>, building only the platforms that need it.
 # Triggered by pushing a tag v<upstream>+<custom> (the tag is the version), or manually, in which case the version
 # is composed from gradle.properties and fork/custom-version.txt on the dispatched commit.
+#
+# Tag push: Android and Windows are chosen from what changed since the previous release tag (shared code
+# rebuilds both; androidApp/ only Android; desktopApp/ only Windows). Linux, macOS and iOS never build
+# automatically. Manual dispatch builds exactly the platforms ticked. A release without a platform's asset
+# simply lacks that file.
 
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
     inputs:
-      ios:
-        description: Also build the iOS IPA (unsigned; failures do not block the release)
+      android:
+        description: Build the Android APK
         type: boolean
         default: true
+      windows:
+        description: Build the Windows zips and installer
+        type: boolean
+        default: true
+      linux:
+        description: Build the Linux AppImages
+        type: boolean
+        default: false
+      macos:
+        description: Build the macOS DMGs
+        type: boolean
+        default: false
+      ios:
+        description: Build the iOS IPA (unsigned; failures do not block the release)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -28,10 +49,45 @@ jobs:
     timeout-minutes: 10
     outputs:
       version: ${{ steps.version.outputs.version }}
+      android: ${{ steps.platforms.outputs.android }}
+      windows: ${{ steps.platforms.outputs.windows }}
+      linux: ${{ steps.platforms.outputs.linux }}
+      macos: ${{ steps.platforms.outputs.macos }}
+      ios: ${{ steps.platforms.outputs.ios }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Choose platforms
+        id: platforms
+        env:
+          EVENT: ${{ github.event_name }}
+          IN_ANDROID: ${{ inputs.android }}
+          IN_WINDOWS: ${{ inputs.windows }}
+          IN_LINUX: ${{ inputs.linux }}
+          IN_MACOS: ${{ inputs.macos }}
+          IN_IOS: ${{ inputs.ios }}
+        run: |
+          set -euo pipefail
+          android=false windows=false linux=false macos=false ios=false
+          if [ "$EVENT" = workflow_dispatch ]; then
+            android=$IN_ANDROID windows=$IN_WINDOWS linux=$IN_LINUX macos=$IN_MACOS ios=$IN_IOS
+          else
+            prev="$(git tag --list 'v*+*' --sort=-v:refname | grep -vxF "$GITHUB_REF_NAME" | head -1 || true)"
+            if [ -z "$prev" ]; then
+              android=true windows=true
+            else
+              changed="$(git diff --name-only "$prev" HEAD)"
+              echo "Changed since $prev:"; echo "$changed"
+              common='^(shared/|listenTogetherProto/|metroproto/|opusDecoder/|gradle/|build\.gradle\.kts|settings\.gradle\.kts|gradle\.properties)'
+              if grep -qE "$common|^androidApp/" <<<"$changed"; then android=true; fi
+              if grep -qE "$common|^(desktopApp/|metro-wv2-helper/)" <<<"$changed"; then windows=true; fi
+            fi
+          fi
+          for p in android windows linux macos ios; do echo "$p=${!p}" >> "$GITHUB_OUTPUT"; done
+          echo "Building: android=$android windows=$windows linux=$linux macos=$macos ios=$ios" >> "$GITHUB_STEP_SUMMARY"
       - name: Compose version
         id: version
         env:
@@ -56,6 +112,7 @@ jobs:
 
   android:
     name: Android
+    if: needs.prepare.outputs.android == 'true'
     needs: prepare
     uses: ./.github/workflows/reusable-android-build.yml
     permissions:
@@ -72,6 +129,7 @@ jobs:
 
   windows:
     name: Windows
+    if: needs.prepare.outputs.windows == 'true'
     needs: prepare
     uses: ./.github/workflows/reusable-desktop-windows.yml
     permissions:
@@ -84,6 +142,7 @@ jobs:
 
   windows-manager:
     name: Windows installer
+    if: needs.prepare.outputs.windows == 'true'
     needs: [prepare, windows]
     uses: ./.github/workflows/reusable-windows-manager.yml
     permissions:
@@ -94,6 +153,7 @@ jobs:
 
   linux:
     name: Linux
+    if: needs.prepare.outputs.linux == 'true'
     needs: prepare
     uses: ./.github/workflows/reusable-desktop-linux.yml
     permissions:
@@ -106,6 +166,7 @@ jobs:
 
   macos:
     name: macOS
+    if: needs.prepare.outputs.macos == 'true'
     needs: prepare
     uses: ./.github/workflows/reusable-desktop-macos.yml
     permissions:
@@ -119,7 +180,7 @@ jobs:
 
   ios:
     name: iOS
-    if: inputs.ios
+    if: needs.prepare.outputs.ios == 'true'
     needs: prepare
     uses: ./.github/workflows/reusable-ios-build.yml
     permissions:
@@ -134,12 +195,14 @@ jobs:
   publish:
     name: Publish release
     needs: [prepare, android, windows, windows-manager, linux, macos, ios]
-    # iOS is optional; everything else must have succeeded.
+    # iOS is optional; every platform that was selected must have succeeded (a skipped one was not selected).
     if: >-
       always() && !cancelled()
-      && needs.android.result == 'success' && needs.windows.result == 'success'
-      && needs.windows-manager.result == 'success' && needs.linux.result == 'success'
-      && needs.macos.result == 'success'
+      && contains(fromJSON('["success","skipped"]'), needs.android.result)
+      && contains(fromJSON('["success","skipped"]'), needs.windows.result)
+      && contains(fromJSON('["success","skipped"]'), needs.windows-manager.result)
+      && contains(fromJSON('["success","skipped"]'), needs.linux.result)
+      && contains(fromJSON('["success","skipped"]'), needs.macos.result)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -155,14 +218,18 @@ jobs:
       - name: Name and checksum assets
         env:
           APP_VERSION: ${{ needs.prepare.outputs.version }}
+          ANDROID: ${{ needs.prepare.outputs.android }}
+          WINDOWS: ${{ needs.prepare.outputs.windows }}
         run: |
           set -euo pipefail
           cd release-assets
-          # The Windows installer downloads this exact name; the ARM64 zip carries the version like upstream's.
-          mv Metrolist-Desktop-Windows.zip Metrolist-Desktop-windows.zip
-          mv Metrolist-Desktop-Windows-arm64.zip "metrolist-desktop-windows-arm64-${APP_VERSION}.zip"
-          test -f Metrolist.apk
-          test -f "metrolist-installer-windows-x64-${APP_VERSION}.exe"
+          if [ "$WINDOWS" = true ]; then
+            # The Windows installer downloads this exact name; the ARM64 zip carries the version like upstream's.
+            mv Metrolist-Desktop-Windows.zip Metrolist-Desktop-windows.zip
+            mv Metrolist-Desktop-Windows-arm64.zip "metrolist-desktop-windows-arm64-${APP_VERSION}.zip"
+            test -f "metrolist-installer-windows-x64-${APP_VERSION}.exe"
+          fi
+          if [ "$ANDROID" = true ]; then test -f Metrolist.apk; fi
           ls -l
           sha256sum -- * > SHA256SUMS
 

@@ -20,12 +20,16 @@ internal fun deviceSwitchAction(
 ): DeviceSwitchAction? {
     if (localDeviceId.isEmpty()) return null
     if (sessionActive && sessionTargetId != null && sessionTargetId != localDeviceId) {
-        return DeviceSwitchAction(localDeviceId, "Play on this phone")
+        // The label states where it plays now; tapping it brings playback back to this phone.
+        val target = peers.firstOrNull { it.id == sessionTargetId }
+        return DeviceSwitchAction(localDeviceId, "Playing on ${target?.displayName() ?: "another device"}")
     }
     val peer =
         peers
             .filter { it.state == PeerState.CONNECTED }
             .minByOrNull { it.name.lowercase() }
             ?: return null
-    return DeviceSwitchAction(peer.id, "Play on ${peer.name.ifBlank { peer.model.ifBlank { "other device" } }}")
+    return DeviceSwitchAction(peer.id, "Play on ${peer.displayName() ?: "other device"}")
 }
+
+private fun PeerDevice.displayName(): String? = name.ifBlank { model }.ifBlank { null }

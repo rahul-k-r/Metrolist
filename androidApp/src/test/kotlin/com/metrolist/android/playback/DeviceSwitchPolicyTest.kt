@@ -20,9 +20,15 @@ class DeviceSwitchPolicyTest {
     }
 
     @Test
-    fun offersThisPhoneWhilePlayingOnAnotherDevice() {
+    fun namesTheDeviceItIsPlayingOnAndSwitchesBackToThisPhone() {
         val action = deviceSwitchAction("me", true, "a", listOf(peer("a", "Desk")))
-        assertEquals(DeviceSwitchAction("me", "Play on this phone"), action)
+        assertEquals(DeviceSwitchAction("me", "Playing on Desk"), action)
+    }
+
+    @Test
+    fun fallsBackToAGenericNameWhenTheTargetIsNotAListedPeer() {
+        val action = deviceSwitchAction("me", true, "gone", emptyList())
+        assertEquals(DeviceSwitchAction("me", "Playing on another device"), action)
     }
 
     @Test

@@ -6,7 +6,8 @@ name: Fork release
 #
 # Tag push: platforms are chosen from what changed since the previous release tag. Shared code rebuilds Android
 # and Windows; androidApp/ only Android; desktopApp/ only Windows. Linux, macOS and iOS build only when files
-# made for them changed (names containing linux/macos/darwin/dmg, flatpak/, aur/, iosApp/, iosMain/).
+# made for them changed (names containing linux/macos/darwin/dmg, flatpak/, aur/). iOS is not built on tag
+# pushes (known issue: the link step runs out of memory); tick it on manual dispatch to try.
 # Manual dispatch builds exactly the platforms ticked. A release without a platform's asset simply lacks that file.
 
 on:
@@ -84,11 +85,11 @@ jobs:
               common='^(shared/|listenTogetherProto/|metroproto/|opusDecoder/|gradle/|build\.gradle\.kts|settings\.gradle\.kts|gradle\.properties)'
               if grep -qE "$common|^androidApp/" <<<"$changed"; then android=true; fi
               if grep -qE "$common|^(desktopApp/|metro-wv2-helper/)" <<<"$changed"; then windows=true; fi
-              # Linux, macOS and iOS build only when files made for them changed (shared code alone does not trigger them).
+              # Linux and macOS build only when files made for them changed (shared code alone does not trigger them).
+              # iOS is never selected on a tag push: its link step runs out of memory on the runner (known issue, unsupported).
               own="$(grep -vE '^(docs/|scripts/|assets/|fork/)' <<<"$changed" || true)"
               if grep -qiE 'linux|^(flatpak/|aur/|packaging/(flatpak|aur|nix)/)' <<<"$own"; then linux=true; fi
               if grep -qiE 'macos|darwin|dmg|^packaging/homebrew/' <<<"$own"; then macos=true; fi
-              if grep -qE '^iosApp/|^shared/src/ios(Main|Test)/' <<<"$own"; then ios=true; fi
             fi
           fi
           for p in android windows linux macos ios; do echo "$p=${!p}" >> "$GITHUB_OUTPUT"; done

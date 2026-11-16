@@ -6,7 +6,7 @@ name: Fork release
 
 on:
   push:
-    tags: ["v*.*.*+*.*.*"]
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
       ios:

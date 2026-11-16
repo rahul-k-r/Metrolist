@@ -27,7 +27,8 @@ jobs:
           PART: ${{ inputs.part }}
         run: |
           set -euo pipefail
-          IFS=. read -r major minor patch < <(tr -d '\r\n ' < fork/custom-version.txt)
+          # The stripped value has no trailing newline, so `read` returns 1 at EOF; feed it a here-string instead.
+          IFS=. read -r major minor patch <<< "$(tr -d '\r\n ' < fork/custom-version.txt)"
           case "$PART" in
             major) major=$((major + 1)); minor=0; patch=0 ;;
             minor) minor=$((minor + 1)); patch=0 ;;

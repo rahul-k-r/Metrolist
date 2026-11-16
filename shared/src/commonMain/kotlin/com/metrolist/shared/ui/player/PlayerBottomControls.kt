@@ -13,7 +13,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -231,22 +230,7 @@ internal fun PlayerBottomControls(
                 touchTarget = touchTarget,
             )
 
-            // Between the button group and the menu: same height as the controls, name scrolls when it does not fit.
-            val playingOnDevice by playerConnection?.playingOnDevice?.collectAsState() ?: remember { mutableStateOf<String?>(null) }
-            BoxWithConstraints(
-                modifier = Modifier.weight(1f).padding(horizontal = 6.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                playingOnDevice?.takeIf { !isListenTogetherGuest }?.let { name ->
-                    PlayingOnPill(
-                        name = name,
-                        modifier = Modifier.playerControlBlend(),
-                        maxWidth = Dp.Unspecified,
-                        height = touchTarget,
-                        iconOnly = maxWidth < 88.dp,
-                    )
-                }
-            }
+            PlayingOnPillSlot(height = touchTarget, hidden = isListenTogetherGuest)
             }
 
             Row(

@@ -1000,6 +1000,8 @@ internal fun LandscapePlayerContent(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        // The group keeps its natural width; the pill takes whatever is left before the menu button.
+                        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                         PlayerConnectedButtonGroup(
                             onQueueClick = onOpenQueue,
                             onLyricsClick = {
@@ -1008,7 +1010,7 @@ internal fun LandscapePlayerContent(
                             },
                             isLyricsActive = uiState.isLyricsVisible,
                             isQueueActive = false,
-                            modifier = Modifier.weight(1f, fill = false),
+                            modifier = Modifier,
                             compact = compactHeight,
                             volume = volume,
                             onVolumeChange = { newVolume -> playerConnection?.setVolume(newVolume) },
@@ -1050,6 +1052,8 @@ internal fun LandscapePlayerContent(
                             sleepTimerContentDescription = sleepTimerContentDescription(sleepTimerState),
                             touchTarget = if (compactHeight) 36.dp else 40.dp,
                         )
+                        PlayingOnPillSlot(height = if (compactHeight) 36.dp else 40.dp, hidden = isListenTogetherGuest)
+                        }
 
                         overflowButton()
                     }

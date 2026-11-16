@@ -2,7 +2,9 @@ package com.metrolist.shared.ui.player
 
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
@@ -16,6 +18,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -26,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.playing_on_device
+import com.metrolist.shared.playback.LocalPlayerSession
+import com.metrolist.shared.ui.components.playerControlBlend
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import org.jetbrains.compose.resources.stringResource
 
@@ -46,6 +54,33 @@ fun PlayingOnLine(
         overflow = TextOverflow.Clip,
         modifier = modifier.basicMarquee(),
     )
+}
+
+/**
+ * The pill's place in a player's bottom row: takes the space left between the button group and the menu button, at the
+ * controls' [height], and collapses to an icon when that space is tight. Draws nothing while playing locally.
+ */
+@Composable
+internal fun RowScope.PlayingOnPillSlot(
+    height: Dp,
+    hidden: Boolean = false,
+) {
+    val playerConnection = LocalPlayerSession.current
+    val playingOnDevice by playerConnection?.playingOnDevice?.collectAsState() ?: remember { mutableStateOf<String?>(null) }
+    BoxWithConstraints(
+        modifier = Modifier.weight(1f).padding(horizontal = 6.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        playingOnDevice?.takeIf { !hidden }?.let { name ->
+            PlayingOnPill(
+                name = name,
+                modifier = Modifier.playerControlBlend(),
+                maxWidth = Dp.Unspecified,
+                height = height,
+                iconOnly = maxWidth < 88.dp,
+            )
+        }
+    }
 }
 
 /**

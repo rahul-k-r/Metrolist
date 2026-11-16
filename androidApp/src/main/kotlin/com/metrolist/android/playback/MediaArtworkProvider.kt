@@ -25,7 +25,6 @@ import kotlinx.coroutines.withTimeout
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.jetbrains.compose.resources.getDrawableResourceBytes
 import org.jetbrains.compose.resources.getSystemResourceEnvironment
-import timber.log.Timber
 import java.io.File
 import java.io.FileNotFoundException
 import java.util.concurrent.ConcurrentHashMap
@@ -102,10 +101,11 @@ class MediaArtworkProvider : ContentProvider() {
     ): ParcelFileDescriptor {
         if (mode != "r" || uri.path != "/artwork") throw FileNotFoundException()
         val caller = callingPackage
+        android.util.Log.i("MediaArtwork", "artwork open by $caller")
         // A null caller is an in-process call, not a binder request from another app.
         if (caller != null && caller != context?.packageName && caller !in allowedPackages && caller !in wearBridgePackages && !isSystemMediaUi()) {
             // Naming the denied package is what identifies the process the watch loads artwork through.
-            Timber.tag("MediaArtwork").w("artwork denied for %s", caller)
+            android.util.Log.w("MediaArtwork", "artwork denied for $caller")
             throw SecurityException()
         }
         val key = uri.getQueryParameter("key") ?: throw FileNotFoundException()

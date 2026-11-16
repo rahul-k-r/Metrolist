@@ -929,13 +929,10 @@ class MusicService :
                         sync.targetId,
                         devices.peers,
                     ).also {
-                        Timber.tag("DeviceSwitch").i(
-                            "action=%s local='%s' session=%s target=%s peers=%s",
-                            it?.label,
-                            devices.localDeviceId,
-                            sync.sessionId,
-                            sync.targetId,
-                            devices.peers.map { p -> "${p.name}:${p.state}" },
+                        android.util.Log.i(
+                            "DeviceSwitch",
+                            "action=${it?.label} local='${devices.localDeviceId}' session=${sync.sessionId} " +
+                                "target=${sync.targetId} peers=${devices.peers.map { p -> "${p.name}:${p.state}" }}",
                         )
                     }
                 }.distinctUntilChanged()

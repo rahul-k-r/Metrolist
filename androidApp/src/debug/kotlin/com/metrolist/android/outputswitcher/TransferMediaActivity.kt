@@ -28,9 +28,8 @@ class TransferMediaActivity : Activity() {
 /** Debug-only auto-start: no edits to production code needed. */
 class OutputSwitcherSpikeInitializer : android.content.ContentProvider() {
     override fun onCreate(): Boolean {
-        val ctx = context ?: return false
-        // Post so Application.onCreate (Timber planting etc.) has finished.
-        Handler(Looper.getMainLooper()).post { runCatching { OutputSwitcherSpike.start(ctx) }.onFailure { spikeLog("start failed", it) } }
+        // Disabled: the spike's media routes add a second volume control and never showed in the output switcher.
+        // The notification "Play on" button does not depend on it.
         return true
     }
 

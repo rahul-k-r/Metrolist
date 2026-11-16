@@ -1048,6 +1048,15 @@ private fun runDesktopApp(args: Array<String>) {
     }
     val useSystemWindowFrame = Settings.shared.enableSystemWindowFrame
 
+    // Starting to the tray must never open a window: it stays hidden, and startup stops waiting for its first frame.
+    val startHidden = Settings.shared.startMinimizedToTray && java.awt.SystemTray.isSupported()
+    if (startHidden) {
+        ComposeTrayManager.setWindowVisible(false)
+        startup.windowShown.complete(Unit)
+        startup.firstFrame.complete(Unit)
+        startup.appFrame.complete(Unit)
+    }
+
     applicationScope.launch(Dispatchers.IO) { ThemeUtils.observeSystemTheme() }
     startupJob = applicationScope.launch { initializeBackend() }
 
@@ -1230,11 +1239,13 @@ private fun runDesktopApp(args: Array<String>) {
             onCloseRequest = { minimizeToTrayOrClose() },
             title = if (BuildConfig.DEBUG) "Metrolist Debug" else "Metrolist",
             state = windowState,
+            visible = ComposeTrayManager.windowVisible,
             undecorated = isLinux && !useSystemWindowFrame,
             transparent = false,
             icon = dynamicIcon,
         ) {
             LaunchedEffect(window) {
+                if (startHidden) return@LaunchedEffect
                 while (!window.isShowing) delay(16L)
                 startup.windowShown.complete(Unit)
                 startup.firstFrame.await()

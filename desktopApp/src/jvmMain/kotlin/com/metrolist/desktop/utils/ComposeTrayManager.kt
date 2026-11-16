@@ -72,6 +72,7 @@ object ComposeTrayManager {
     private val clickScheduler = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "tray-click").apply { isDaemon = true } }
     private var windowState: WindowState? = null
     private var mainWindow: Window? = null
+    private var neverShown = false
     private var onQuit: (() -> Unit)? = null
     private var isWindowVisible = mutableStateOf(true)
     internal val windowVisible: Boolean get() = isWindowVisible.value
@@ -92,6 +93,8 @@ object ComposeTrayManager {
     ) {
         windowState = mainWindowState
         this.mainWindow = mainWindow
+        // A window started hidden has no peer yet, so "not displayable" does not mean disposed until it has been shown once.
+        neverShown = !isWindowVisible.value
         this.onQuit = onQuit
         trayDisposed = CompletableDeferred()
         trayEnabled.value = true
@@ -124,7 +127,8 @@ object ComposeTrayManager {
     fun showWindow() {
         EventQueue.invokeLater {
             // Disposal can precede tray cleanup; a disposed Compose window cannot be shown again.
-            val window = mainWindow?.takeIf { it.isDisplayable } ?: return@invokeLater
+            val window = mainWindow?.takeIf { it.isDisplayable || neverShown } ?: return@invokeLater
+            neverShown = false
             windowState?.let { state ->
                 state.isMinimized = false
                 isWindowVisible.value = true

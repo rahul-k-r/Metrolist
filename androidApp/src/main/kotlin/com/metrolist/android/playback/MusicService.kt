@@ -3070,6 +3070,7 @@ class MusicService :
                 // Shuffle and repeat are safe for the unverified Wear OS bridge too; like and queue edits stay gated.
                 commands.add(MediaSessionConstants.CommandToggleShuffle)
                 commands.add(MediaSessionConstants.CommandToggleRepeat)
+                commands.add(MediaSessionConstants.CommandSwitchDevice)
                 // Unverified bridges (the Wear OS media bridge) show the same artwork as the notification; the provider
                 // still checks the real calling package, so this only lets that package read what the session publishes.
                 MediaArtworkProvider.allowedPackages += controller.packageName

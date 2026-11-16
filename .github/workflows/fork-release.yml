@@ -1,9 +1,12 @@
 name: Fork release
 
 # Builds every platform upstream targets and publishes one GitHub release tagged v<upstream>+<custom>.
-# The custom part comes from fork/custom-version.txt on the dispatched commit (use "Fork bump version" to change it).
+# Triggered by pushing a tag v<upstream>+<custom> (the tag is the version), or manually, in which case the version
+# is composed from gradle.properties and fork/custom-version.txt on the dispatched commit.
 
 on:
+  push:
+    tags: ["v*.*.*+*.*.*"]
   workflow_dispatch:
     inputs:
       ios:
@@ -40,6 +43,10 @@ jobs:
           [[ "$upstream" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Unexpected upstream version: $upstream" >&2; exit 1; }
           [[ "$custom" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Unexpected custom version: $custom" >&2; exit 1; }
           version="$upstream+$custom"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version="${GITHUB_REF_NAME#v}"
+            [[ "$version" == "$upstream+"* ]] || { echo "Tag $GITHUB_REF_NAME does not start with upstream version $upstream" >&2; exit 1; }
+          fi
           if gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release v$version already exists; bump fork/custom-version.txt first" >&2
             exit 1

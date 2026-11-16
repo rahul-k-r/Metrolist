@@ -951,15 +951,27 @@ class MusicService :
                 mediaSession?.setMediaButtonPreferences(
                     ImmutableList.copyOf(
                         transportButtons() +
-                            listOfNotNull(
-                                if (deviceFirst) switchButton else null,
-                                createLikeButton(overflowOnly = deviceFirst),
-                                createRepeatButton(),
-                                createShuffleButton(),
-                                createRadioButton(startRadioLabel),
-                                createAddToPlaylistButton(),
-                                if (deviceFirst) null else switchButton,
-                            ),
+                            // The notification fills its two extra positions with the first two buttons in this
+                            // order and ignores slot hints, so the order itself decides what is visible.
+                            if (deviceFirst) {
+                                listOf(
+                                    switchButton!!,
+                                    createRepeatButton(),
+                                    createShuffleButton(),
+                                    createRadioButton(startRadioLabel),
+                                    createAddToPlaylistButton(),
+                                    createLikeButton(overflowOnly = true),
+                                )
+                            } else {
+                                listOfNotNull(
+                                    createLikeButton(),
+                                    createRepeatButton(),
+                                    createShuffleButton(),
+                                    createRadioButton(startRadioLabel),
+                                    createAddToPlaylistButton(),
+                                    switchButton,
+                                )
+                            },
                     ),
                 )
             }

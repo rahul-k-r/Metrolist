@@ -9,6 +9,8 @@ import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.model.SortDirection
 import com.metrolist.shared.model.filterAndSortHistory
 import com.metrolist.shared.settings.BlockedContent
+import com.metrolist.shared.settings.IncognitoMarks
+import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.state.GlobalYouTubeRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -145,8 +147,15 @@ private suspend fun <T> MusicDatabase.withHistoryStatExclusions(
 ): T =
     withDatabaseTransaction {
         installHistoryExclusionInvalidation()
-        val artists = BlockedContent.artists()
-        val songIds = BlockedContent.songIds()
+        val excluded =
+            historyExcludedContent(
+                BlockedContent.artists(),
+                BlockedContent.songIds(),
+                Settings.shared.incognitoModeEnabled,
+                IncognitoMarks.items(),
+            )
+        val artists = excluded.artists
+        val songIds = excluded.songIds
         val blocklist = Json.encodeToString(listOf(Json.encodeToString(artists), Json.encodeToString(songIds.sorted())))
         val prepared = dao().historyExclusionScope()?.let { Json.decodeFromString<HistoryExclusionScope>(it) }
         if (prepared != null && prepared.blocklist == blocklist && prepared.sinceMs <= sinceMs && prepared.untilMs >= untilMs) {
@@ -437,7 +446,8 @@ fun MusicDatabase.historyChanges(includeSongMetadata: Boolean = true): Flow<Unit
                 .toTypedArray(),
         ),
         BlockedContent.version,
-    ) { _, _ -> }
+        IncognitoMarks.version,
+    ) { _, _, _ -> }
 
 fun MusicDatabase.collectionPlayCounts(songIds: List<String>? = null): Flow<Map<String, Int>> =
     historyChanges(includeSongMetadata = false)

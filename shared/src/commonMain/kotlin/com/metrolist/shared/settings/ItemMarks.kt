@@ -5,6 +5,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.metrolist.shared.model.SongItem
 import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.atomicfu.locks.synchronized
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -79,6 +82,11 @@ open class MarkRegistry(
 
     @Volatile
     private var cached: Parsed? = null
+
+    private val _version = MutableStateFlow(0)
+
+    /** Bumps whenever the marks change, so anything derived from them (like statistics) can refresh. */
+    val version: StateFlow<Int> = _version.asStateFlow()
 
     // Reentrant, and common to every target (@Synchronized is JVM-only and breaks the iOS build).
     private val lock = SynchronizedObject()
@@ -155,6 +163,7 @@ open class MarkRegistry(
     private fun save(items: List<MarkedItem>) {
         val cutoff = now() - TOMBSTONE_TTL_MS
         write(json.encodeToString(items.filterNot { it.removed && it.updatedAt < cutoff }))
+        _version.value++
     }
 
     private companion object {

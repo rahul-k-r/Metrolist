@@ -689,6 +689,31 @@ internal fun externalTransportPlayerCommands(): Player.Commands =
         .apply { externalTransportPlayerCommandCodes.forEach(::add) }
         .build()
 
+/**
+ * Transport-only commands for controllers whose package can't be verified (e.g. the Wear OS media bridge). Media3's
+ * untrusted default is read-only, which leaves a watch able to show the queue but not play, pause or skip.
+ */
+internal val untrustedTransportPlayerCommandCodes =
+    setOf(
+        Player.COMMAND_PLAY_PAUSE,
+        Player.COMMAND_STOP,
+        Player.COMMAND_SEEK_BACK,
+        Player.COMMAND_SEEK_FORWARD,
+        Player.COMMAND_SEEK_TO_NEXT,
+        Player.COMMAND_SEEK_TO_PREVIOUS,
+        Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+        Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
+        Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
+        Player.COMMAND_SEEK_TO_DEFAULT_POSITION,
+    )
+
+internal fun untrustedTransportPlayerCommands(): Player.Commands =
+    Player.Commands
+        .Builder()
+        .addAllReadOnlyCommands()
+        .apply { untrustedTransportPlayerCommandCodes.forEach(::add) }
+        .build()
+
 internal fun newQueueShuffleEnabled(
     requestedShuffle: Boolean?,
     currentShuffle: Boolean,

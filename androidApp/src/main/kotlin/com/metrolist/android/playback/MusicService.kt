@@ -3017,7 +3017,7 @@ class MusicService :
                         // Platform bridges can lack a verified package; media-ID requests can only select the active queue.
                         externalTransportPlayerCommands()
                     } else {
-                        MediaSession.ConnectionResult.DEFAULT_UNTRUSTED_PLAYER_COMMANDS
+                        untrustedTransportPlayerCommands()
                     },
                 )
             }

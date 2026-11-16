@@ -159,13 +159,14 @@ jobs:
     name: Package iOS IPA
     if: inputs.build-ipa || inputs.upload-artifact || inputs.staging-release-tag != ''
     runs-on: macos-latest
-    timeout-minutes: 45
+    timeout-minutes: 75 # fork: the free macOS runner (7 GB) links far slower than upstream's
     env:
       LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
       LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
+      # fork: the free runner has 7 GB; the release link ran out of heap at 60%, so give the single linker 85%.
       GRADLE_OPTS: >-
-        -Dorg.gradle.jvmargs="-XX:MaxRAMPercentage=60.0 -XX:+UseParallelGC -Dkotlin.daemon.jvm.options=-XX:MaxRAMPercentage=60.0"
-      ORG_GRADLE_PROJECT_org.gradle.workers.max: "2"
+        -Dorg.gradle.jvmargs="-XX:MaxRAMPercentage=85.0 -XX:+UseParallelGC -Dkotlin.daemon.jvm.options=-XX:MaxRAMPercentage=85.0"
+      ORG_GRADLE_PROJECT_org.gradle.workers.max: "1"
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

@@ -15,6 +15,13 @@ import com.metrolist.desktop.state.app.DesktopNavigation
 import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.state.content.LibraryContentState
 import com.metrolist.shared.generated.resources.add_to_queue
+import com.metrolist.shared.generated.resources.clear_queue
+import com.metrolist.shared.generated.resources.repeat_mode_all
+import com.metrolist.shared.generated.resources.repeat_mode_off
+import com.metrolist.shared.generated.resources.repeat_mode_one
+import com.metrolist.shared.generated.resources.restart_queue
+import com.metrolist.shared.generated.resources.shuffle
+import com.metrolist.shared.model.RepeatMode
 import com.metrolist.shared.generated.resources.play_next
 import com.metrolist.shared.generated.resources.playlists
 import com.metrolist.shared.generated.resources.tray_recently_played
@@ -200,6 +207,15 @@ object ComposeTrayManager {
         val recentSongs by recentFlow.collectAsState(emptyList())
         val libraryPlaylists = LibraryContentState.userPlaylists
         var playlistMode by remember { mutableStateOf(Settings.shared.desktopTrayPlaylistMode) }
+        val shuffleEnabled = PlayerState.shuffleEnabled
+        val repeatMode = PlayerState.repeatMode
+        val hasQueue = PlayerState.queue.items.collectAsState().value.isNotEmpty()
+        val strShuffle = stringResource(Res.string.shuffle)
+        val strRepeatOff = stringResource(Res.string.repeat_mode_off)
+        val strRepeatAll = stringResource(Res.string.repeat_mode_all)
+        val strRepeatOne = stringResource(Res.string.repeat_mode_one)
+        val strRestartQueue = stringResource(Res.string.restart_queue)
+        val strClearQueue = stringResource(Res.string.clear_queue)
 
         val playingText =
             currentTrack?.let { track ->
@@ -288,6 +304,20 @@ object ComposeTrayManager {
                             PlayerState.skipPrevious()
                         }
                     }
+
+                    Divider()
+
+                    Item(label = if (shuffleEnabled) "✓ $strShuffle" else strShuffle) { PlayerState.toggleShuffle() }
+                    Item(
+                        label =
+                            when (repeatMode) {
+                                RepeatMode.OFF -> strRepeatOff
+                                RepeatMode.ALL -> "✓ $strRepeatAll"
+                                RepeatMode.ONE -> "✓ $strRepeatOne"
+                            },
+                    ) { PlayerState.cycleRepeatMode() }
+                    Item(label = strRestartQueue, isEnabled = hasQueue) { PlayerState.restartQueue() }
+                    Item(label = strClearQueue, isEnabled = hasQueue) { PlayerState.clearQueue() }
 
                     Divider()
                 }

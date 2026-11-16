@@ -2583,6 +2583,22 @@ object PlayerState {
         persistPlaybackState()
     }
 
+    /** Starts the queue over from its first song, keeping the queue itself. */
+    fun restartQueue() {
+        if (isListenTogetherGuest()) return
+        val items = queue.items.value
+        val first = items.firstOrNull() ?: return
+        playTrackInternal(first, items)
+    }
+
+    /** Stops playback and empties the queue. */
+    fun clearQueue() {
+        if (isListenTogetherGuest()) return
+        stop()
+        queue.setQueue(emptyList(), startIndex = -1)
+        queueChanged()
+    }
+
     fun setVolumeLevel(level: Float) {
         if (!level.isFinite()) return
         val volumeLevel = level.coerceIn(0f, 1f)

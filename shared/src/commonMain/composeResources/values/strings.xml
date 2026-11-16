@@ -131,6 +131,8 @@
     <string name="play_next">Play next</string>
     <!-- Translators: Imperative action label for add to queue in the multiple app screens. -->
     <string name="add_to_queue">Add to queue</string>
+    <string name="restart_queue">Restart queue</string>
+    <string name="clear_queue">Clear queue</string>
     <!-- Translators: Imperative action label for remove from library in the multiple app screens. -->
     <string name="remove_from_library">Remove from library</string>
     <!-- Translators: Imperative action that downloads media for offline playback. -->

@@ -13,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -167,6 +168,11 @@ internal fun PlayerBottomControls(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
+            // The group keeps its natural width; the pill takes whatever is left before the menu button.
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
             PlayerConnectedButtonGroup(
                 onQueueClick = onOpenQueue,
                 onLyricsClick = {
@@ -176,7 +182,7 @@ internal fun PlayerBottomControls(
                 },
                 isLyricsActive = isLyricsVisible,
                 isQueueActive = false,
-                modifier = Modifier.weight(1f, fill = false),
+                modifier = Modifier,
                 compact = false,
                 volume = volume,
                 onVolumeChange = { newVolume -> playerConnection?.setVolume(newVolume) },
@@ -224,6 +230,24 @@ internal fun PlayerBottomControls(
                 isDeviceConnectActive = isDeviceConnectActive,
                 touchTarget = touchTarget,
             )
+
+            // Between the button group and the menu: same height as the controls, name scrolls when it does not fit.
+            val playingOnDevice by playerConnection?.playingOnDevice?.collectAsState() ?: remember { mutableStateOf<String?>(null) }
+            BoxWithConstraints(
+                modifier = Modifier.weight(1f).padding(horizontal = 6.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                playingOnDevice?.takeIf { !isListenTogetherGuest }?.let { name ->
+                    PlayingOnPill(
+                        name = name,
+                        modifier = Modifier.playerControlBlend(),
+                        maxWidth = Dp.Unspecified,
+                        height = touchTarget,
+                        iconOnly = maxWidth < 88.dp,
+                    )
+                }
+            }
+            }
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,

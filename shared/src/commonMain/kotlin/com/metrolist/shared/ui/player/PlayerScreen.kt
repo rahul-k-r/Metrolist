@@ -1630,7 +1630,6 @@ fun PlayerScreen(
                                                         if (!isTv && !isListenTogetherGuest && platform.supportsCasting &&
                                                             Settings.shared.isPlayerCastButtonVisible
                                                         ) {
-                                                            playingOnDevice?.let { PlayingOnPill(it, Modifier.playerControlBlend(), maxWidth = 120.dp) }
                                                             FilledIconButton(
                                                                 onClick = {
                                                                     hapticManager.perform(HapticEvent.PRESS)

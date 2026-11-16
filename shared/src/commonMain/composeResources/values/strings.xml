@@ -2894,8 +2894,6 @@
     <!-- Translators: Supporting text beneath the persistent shuffle option in the settings. -->
     <string name="persistent_shuffle_desc">Keep shuffle enabled when starting new songs or playlists</string>
     <!-- Translators: Option or section label for remember shuffle and repeat in the settings. -->
-    <string name="forward_volume_to_kde_connect">Control KDE Connect volume</string>
-    <string name="forward_volume_to_kde_connect_desc">While playing on a connected device, phone and watch volume changes go to KDE Connect. Needs notification access, which you grant or revoke on the next screen; the app never reads notifications.</string>
     <string name="device_switch_in_notification">Device button in notification</string>
     <string name="device_switch_in_notification_desc">Show "Play on" / "Playing on" a connected device in place of the like button</string>
     <string name="remember_shuffle_and_repeat">Remember shuffle and repeat</string>

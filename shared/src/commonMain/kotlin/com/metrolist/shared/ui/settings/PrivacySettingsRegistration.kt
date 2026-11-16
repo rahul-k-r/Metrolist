@@ -170,17 +170,6 @@ internal fun SettingsUiRegistryBuilder.registerPrivacySettings(host: SharedSetti
             ) {
                 host.onSettingChanged(SettingsChangeEffect.SENTRY, it)
             }
-            if (host.platform == SettingsPlatform.ANDROID) {
-                switch(
-                    id = "forwardVolumeToKdeConnect",
-                    title = stringResource(Res.string.forward_volume_to_kde_connect),
-                    description = stringResource(Res.string.forward_volume_to_kde_connect_desc),
-                    checked = settings.forwardVolumeToKdeConnect,
-                ) {
-                    settings.forwardVolumeToKdeConnect = it
-                    host.onSettingChanged(SettingsChangeEffect.KDE_VOLUME_ACCESS, it)
-                }
-            }
             if (host.platform != SettingsPlatform.ANDROID) {
                 switch(
                     id = "diagnosticLogging",

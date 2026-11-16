@@ -420,7 +420,6 @@ fun SettingsOverlay(colorScheme: ColorScheme) {
                                 SettingsChangeEffect.AUDIO,
                                 SettingsChangeEffect.CONTENT,
                                 SettingsChangeEffect.AUTO_DOWNLOAD_ON_LIKE,
-                                SettingsChangeEffect.KDE_VOLUME_ACCESS,
                                 SettingsChangeEffect.PLAYBACK_SPEED,
                                 SettingsChangeEffect.PLAYBACK_PITCH,
                                 -> {

@@ -454,17 +454,6 @@
             android:foregroundServiceType="dataSync"
             android:stopWithTask="false" />
 
-        <!-- Only exists so the user can grant notification access, which Android requires to read another app's media session. It ignores every notification. -->
-        <service
-            android:name="com.metrolist.android.playback.KdeVolumeListenerService"
-            android:exported="true"
-            android:label="@string/app_name"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
-            <intent-filter>
-                <action android:name="android.service.notification.NotificationListenerService" />
-            </intent-filter>
-        </service>
-
         <service
             android:name="com.metrolist.android.playback.DownloadService"
             android:exported="false"

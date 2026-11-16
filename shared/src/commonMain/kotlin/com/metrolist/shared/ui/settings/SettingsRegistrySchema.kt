@@ -76,7 +76,6 @@ enum class SettingsChangeEffect {
     PLAYBACK_PITCH,
     LOGGING,
     VIDEO_PLAYBACK,
-    KDE_VOLUME_ACCESS,
 }
 
 enum class SettingsHostChoice {

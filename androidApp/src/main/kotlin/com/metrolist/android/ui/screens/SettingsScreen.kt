@@ -558,15 +558,6 @@ fun SettingsScreen(
                                 }
                             }
 
-                            SettingsChangeEffect.KDE_VOLUME_ACCESS -> {
-                                // Android only lets the user grant or revoke notification access, so send them to that screen.
-                                context.startActivity(
-                                    android.content
-                                        .Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-                                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
-                                )
-                            }
-
                             SettingsChangeEffect.CONTENT,
                             SettingsChangeEffect.RESTART,
                             SettingsChangeEffect.PLAYBACK_SPEED,

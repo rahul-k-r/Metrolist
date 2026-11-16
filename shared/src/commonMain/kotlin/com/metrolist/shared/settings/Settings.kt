@@ -426,9 +426,6 @@ class Settings(
 
     // Android notification: the device button takes the like button's slot.
     var deviceSwitchInNotification by preference(true)
-
-    // Sends volume changes to KDE Connect's media session while playing on a Device Connect device.
-    var forwardVolumeToKdeConnect by preference(false)
     var shuffleEnabled by preference(false)
     var androidAutoTargetPlaylist by preference(AndroidAutoTargetPlaylistKey, "")
     var androidAutoPinnedPlaylistsJson by preference(AndroidAutoPinnedPlaylistsJsonKey, "[]")

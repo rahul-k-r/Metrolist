@@ -283,6 +283,8 @@ Android, desktop and iOS use the shared settings registry. The settings shell ow
 
 The theme colour picker appears only while Material You is off. With Material You on, artwork colours apply when enabled, then wallpaper colours on Android 12+, otherwise the default seed. Sliders placed directly in a card have a button that restores the default.
 
+Android accepts TTF and OTF imports from document providers regardless of their reported MIME type. Each validated import gets a new managed path so replacing a font reloads the typography and typeface. Reset removes imported fonts and keeps downloaded font families.
+
 ## Lyrics
 
 ### Lookup

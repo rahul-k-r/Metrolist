@@ -17,7 +17,6 @@ import com.metrolist.desktop.state.content.LibraryContentState
 import com.metrolist.shared.generated.resources.add_to_queue
 import com.metrolist.shared.generated.resources.play_next
 import com.metrolist.shared.generated.resources.playlists
-import com.metrolist.shared.generated.resources.tray_open_playlist
 import com.metrolist.shared.generated.resources.tray_recently_played
 import kotlinx.coroutines.flow.flowOf
 import com.metrolist.desktop.state.playback.ListenTogetherState
@@ -194,13 +193,13 @@ object ComposeTrayManager {
         val strQuitMetrolist = stringResource(Res.string.tray_quit_metrolist)
         val strTrayByTemplate = stringResource(Res.string.tray_by)
         val strRecentlyPlayed = stringResource(Res.string.tray_recently_played)
-        val strOpenPlaylist = stringResource(Res.string.tray_open_playlist)
         val strPlaylists = stringResource(Res.string.playlists)
         val strPlayNext = stringResource(Res.string.play_next)
         val strAddToQueue = stringResource(Res.string.add_to_queue)
         val recentFlow = remember { runCatching { TrayRecentSongs.flow(TRAY_RECENT_LIMIT) }.getOrElse { flowOf(emptyList()) } }
         val recentSongs by recentFlow.collectAsState(emptyList())
         val libraryPlaylists = LibraryContentState.userPlaylists
+        var playlistMode by remember { mutableStateOf(Settings.shared.desktopTrayPlaylistMode) }
 
         val playingText =
             currentTrack?.let { track ->
@@ -306,14 +305,23 @@ object ComposeTrayManager {
                 }
                 if (libraryPlaylists.isNotEmpty()) {
                     SubMenu(label = strPlaylists) {
-                        libraryPlaylists.take(TRAY_PLAYLIST_LIMIT).forEach { playlist ->
-                            SubMenu(label = playlist.name.takeIf { it.isNotBlank() } ?: strUnknownTitle) {
-                                Item(label = strPlay, isEnabled = !isListenTogetherGuest) { TrayPlaylistPlayer.play(playlist.id) }
-                                Item(label = strOpenPlaylist) {
-                                    showWindow()
-                                    EventQueue.invokeLater { DesktopNavigation.navigate(Screen.Playlist(playlist.id)) }
-                                }
+                        // The ticked mode decides what choosing a playlist below does.
+                        listOf(
+                            TrayPlaylistPlayer.MODE_PLAY to strPlay,
+                            TrayPlaylistPlayer.MODE_PLAY_NEXT to strPlayNext,
+                            TrayPlaylistPlayer.MODE_ADD_TO_QUEUE to strAddToQueue,
+                        ).forEach { (mode, label) ->
+                            Item(label = if (playlistMode == mode) "✓ $label" else label) {
+                                Settings.shared.desktopTrayPlaylistMode = mode
+                                playlistMode = mode
                             }
+                        }
+                        Divider()
+                        libraryPlaylists.take(TRAY_PLAYLIST_LIMIT).forEach { playlist ->
+                            Item(
+                                label = playlist.name.takeIf { it.isNotBlank() } ?: strUnknownTitle,
+                                isEnabled = !isListenTogetherGuest,
+                            ) { TrayPlaylistPlayer.run(playlist, playlistMode) }
                         }
                     }
                 }

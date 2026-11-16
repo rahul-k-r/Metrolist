@@ -900,6 +900,9 @@ class Settings(
     var desktopTrayClickPlayPause by preference(false)
     var startMinimizedToTray by preference(false)
 
+    /** What choosing a playlist in the tray does: 0 starts a fresh queue, 1 plays it next, 2 adds it to the end. */
+    var desktopTrayPlaylistMode by preference(0)
+
     /** Which side panels were open in the desktop expanded player, restored the next time it opens. */
     var expandedPlayerShowQueue by preference(false)
     var expandedPlayerShowLyrics by preference(false)
@@ -1401,6 +1404,7 @@ class Settings(
                     "minimizeToTrayOnClose",
                     "desktopTrayToggleOnClick",
                     "desktopTrayClickPlayPause",
+                    "desktopTrayPlaylistMode",
                     "incognitoMarksJson",
                     "skipMarksJson",
                     // Endpoints: a synced URL could redirect locally stored API keys/tokens to another host.

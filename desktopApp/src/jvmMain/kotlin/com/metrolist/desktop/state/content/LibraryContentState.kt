@@ -268,6 +268,22 @@ object LibraryContentState {
         userPlaylists = playlists
     }
 
+    /** The full item behind a sidebar entry, so its menu knows whether it can be renamed or deleted. */
+    fun playlistItemFor(playlist: UserPlaylist): PlaylistItem {
+        val key = playlist.id.removePrefix("VL")
+        val (local, remote) = playlistSources.snapshot(currentPlaylistAccountKey())
+        remote.firstOrNull { it.id.removePrefix("VL") == key }?.let { return it }
+        val entity = local.firstOrNull { (it.browseId ?: it.id).removePrefix("VL") == key }
+        return PlaylistItem(
+            id = playlist.id,
+            title = playlist.name,
+            thumbnail = playlist.thumbnailUrl,
+            author = playlist.author,
+            isLocal = entity != null && entity.browseId == null,
+            isEditable = entity != null,
+        )
+    }
+
     private fun currentPlaylistAccountKey(): String =
         Settings.shared.dataSyncId.ifBlank {
             Settings.shared.accountEmail.ifBlank { "signed-out" }

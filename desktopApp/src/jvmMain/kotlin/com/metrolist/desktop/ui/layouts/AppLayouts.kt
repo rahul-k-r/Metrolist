@@ -322,7 +322,7 @@ private fun DesktopNavigationScaffold(
                 }
             }
         },
-        navigationExtras = { expanded -> SidebarPlaylists(expanded && !LibraryState.isEditingSidebar) },
+        navigationExtras = { expanded -> if (!LibraryState.isEditingSidebar) SidebarPlaylists(expanded) },
         isEditing = LibraryState.isEditingSidebar,
         onReorderFinished = { order ->
             LibraryState.saveSidebarNavItems(reorderSidebarNavItems(LibraryState.sidebarNavItems, order))

@@ -893,7 +893,7 @@ private fun withMediaSongs(
     }
 }
 
-private suspend fun loadMediaSongs(
+internal suspend fun loadMediaSongs(
     item: YTItem,
     existingSongs: List<SongItem>,
 ): List<SongItem> {

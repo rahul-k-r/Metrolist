@@ -19,6 +19,7 @@ internal fun historyExcludedContent(
     blockedSongIds: Set<String>,
     incognitoEnabled: Boolean,
     incognitoMarks: List<MarkedItem>,
+    collectionSongIds: Set<String> = emptySet(),
 ): HistoryExcludedContent {
     if (!incognitoEnabled || incognitoMarks.isEmpty()) return HistoryExcludedContent(blockedArtists, blockedSongIds)
     val marked = incognitoMarks.filterNot { it.removed }
@@ -29,6 +30,6 @@ internal fun historyExcludedContent(
                 .filter { it.kind == MarkKind.ARTIST && it.id !in knownArtists }
                 .distinctBy { it.id }
                 .map { BlockedArtist(it.id, it.title, it.thumbnail) }
-    val songIds = blockedSongIds + marked.filter { it.kind == MarkKind.SONG }.map { it.id }
+    val songIds = blockedSongIds + marked.filter { it.kind == MarkKind.SONG }.map { it.id } + collectionSongIds
     return HistoryExcludedContent(artists, songIds)
 }

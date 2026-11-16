@@ -14,7 +14,8 @@ import kotlinx.serialization.json.Json
 import kotlin.concurrent.Volatile
 import kotlin.time.Clock
 
-enum class MarkKind { SONG, ARTIST }
+/** ALBUM and PLAYLIST marks cover the songs inside them, via [CollectionMarkMembers]. */
+enum class MarkKind { SONG, ARTIST, ALBUM, PLAYLIST }
 
 /**
  * [updatedAt] and [removed] let two devices merge their marks: the newest change to an item wins, and an
@@ -70,6 +71,7 @@ open class MarkRegistry(
     private val write: (String) -> Unit,
     private val markArtists: Boolean,
     private val now: () -> Long = { Clock.System.now().toEpochMilliseconds() },
+    private val members: CollectionMembersStore? = null,
 ) {
     private class Parsed(
         val source: String,
@@ -78,6 +80,8 @@ open class MarkRegistry(
         val items = all.filterNot { it.removed }
         val songIds = items.filter { it.kind == MarkKind.SONG }.mapTo(mutableSetOf()) { it.id }
         val artistIds = items.filter { it.kind == MarkKind.ARTIST }.mapTo(mutableSetOf()) { it.id }
+        val albumIds = items.filter { it.kind == MarkKind.ALBUM }.mapTo(mutableSetOf()) { it.id }
+        val playlistIds = items.filter { it.kind == MarkKind.PLAYLIST }.mapTo(mutableSetOf()) { it.id }
     }
 
     @Volatile
@@ -125,14 +129,37 @@ open class MarkRegistry(
     ): Boolean {
         if (id.isNullOrBlank()) return false
         val parsed = parsed()
-        return id in if (kind == MarkKind.SONG) parsed.songIds else parsed.artistIds
+        return id in
+            when (kind) {
+                MarkKind.SONG -> parsed.songIds
+                MarkKind.ARTIST -> parsed.artistIds
+                MarkKind.ALBUM -> parsed.albumIds
+                MarkKind.PLAYLIST -> parsed.playlistIds
+            }
     }
 
-    /** A song matches by its own id and, where this registry marks artists, by any credited artist. */
+    /**
+     * A song matches by its own id, by any credited artist where this registry marks artists, and by membership of a
+     * marked album or playlist (as last loaded on this device).
+     */
     fun matches(song: SongItem): Boolean {
         val parsed = parsed()
         if (song.id in parsed.songIds) return true
-        return markArtists && song.artists.any { artist -> artist.id?.let { it in parsed.artistIds } == true }
+        if (markArtists && song.artists.any { artist -> artist.id?.let { it in parsed.artistIds } == true }) return true
+        val store = members ?: return false
+        if (parsed.albumIds.isEmpty() && parsed.playlistIds.isEmpty()) return false
+        val keys =
+            parsed.albumIds.map { store.key(MarkKind.ALBUM, it) } + parsed.playlistIds.map { store.key(MarkKind.PLAYLIST, it) }
+        return store.contains(keys, song.id)
+    }
+
+    /** Song ids inside this registry's marked albums and playlists, as last loaded. */
+    fun collectionSongIds(): Set<String> {
+        val store = members ?: return emptySet()
+        val parsed = parsed()
+        val keys =
+            parsed.albumIds.map { store.key(MarkKind.ALBUM, it) } + parsed.playlistIds.map { store.key(MarkKind.PLAYLIST, it) }
+        return store.songIds(keys)
     }
 
     fun mark(item: MarkedItem) {
@@ -177,6 +204,7 @@ object IncognitoMarks : MarkRegistry(
     read = { Settings.shared.incognitoMarksJson },
     write = { Settings.shared.incognitoMarksJson = it },
     markArtists = true,
+    members = CollectionMarkMembers,
 )
 
 /** Songs that queues built by the app leave out; adding a song to the queue by hand still includes it. */
@@ -184,6 +212,7 @@ object SkipMarks : MarkRegistry(
     read = { Settings.shared.skipMarksJson },
     write = { Settings.shared.skipMarksJson = it },
     markArtists = false,
+    members = CollectionMarkMembers,
 ) {
     class Filtered(
         val songs: List<SongItem>,
@@ -197,6 +226,8 @@ object SkipMarks : MarkRegistry(
     ): Filtered {
         if (!Settings.shared.skipMarkingEnabled || items().isEmpty()) return Filtered(songs, startIndex)
         val kept = songs.filterIndexed { index, song -> index == startIndex || !matches(song) }
+        // Playing a skip-marked album or playlist on purpose would otherwise queue nothing at all.
+        if (kept.isEmpty()) return Filtered(songs, startIndex)
         val newStart = if (startIndex < 0) startIndex else songs.take(startIndex).count { !matches(it) }
         return Filtered(kept, newStart)
     }

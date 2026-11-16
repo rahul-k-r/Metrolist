@@ -339,6 +339,7 @@ fun AlbumContextMenu(
             onHideFromLibrary = onHideFromLibrary,
             onGoToArtist = ArtistState::fetchArtistData,
             additionalActions = additionalActions,
+            loadMarkSongs = { loadMediaSongs(album, songs) },
         )
     }
 }
@@ -430,6 +431,7 @@ fun PlaylistContextMenu(
                     if (isPinned) HomeState.unpinSpeedDialItem(playlist.id) else HomeState.pinSpeedDialItem(playlist)
                 },
                 additionalActions = additionalActions,
+                loadMarkSongs = { loadMediaSongs(playlist, actionSongs) },
             )
         }
         val isAuto = playlist.id.startsWith("auto:")
@@ -512,6 +514,7 @@ fun PlaylistContextMenu(
             onRename = onRename,
             onDelete = onDelete,
             additionalActions = additionalActions,
+            loadMarkSongs = { loadMediaSongs(playlist, actionSongs) },
         )
     }
     PopupContent(removal.pendingIds) { ids ->

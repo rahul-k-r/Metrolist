@@ -80,6 +80,9 @@ internal fun SettingsUiRegistryBuilder.registerPrivacySettings(host: SharedSetti
                 checked = settings.incognitoResetOnRestart,
                 enabled = settings.incognitoModeEnabled,
             ) { settings.incognitoResetOnRestart = it }
+            custom("markedItems", stringResource(Res.string.marked_items), stringResource(Res.string.marked_items_desc)) {
+                MarkedItemsSettingRow()
+            }
         }
         group("history", stringResource(Res.string.history)) {
             switch("pauseListenHistory", stringResource(Res.string.pause_listen_history), checked = settings.pauseListenHistory) {

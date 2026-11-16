@@ -5570,4 +5570,22 @@
     <string name="skip_mark_song">Skip in automatic queues</string>
     <!-- Translators: Song menu item that removes the skip mark from a song. -->
     <string name="skip_unmark_song">Stop skipping this song</string>
+    <!-- Translators: Album/playlist menu items for the always-incognito mark; it covers every song inside. -->
+    <string name="incognito_mark_album">Always play this album incognito</string>
+    <string name="incognito_unmark_album">Stop playing this album incognito</string>
+    <string name="incognito_mark_playlist">Always play this playlist incognito</string>
+    <string name="incognito_unmark_playlist">Stop playing this playlist incognito</string>
+    <!-- Translators: Album/playlist menu items for the skip mark; it covers every song inside. -->
+    <string name="skip_mark_album">Skip this album in automatic queues</string>
+    <string name="skip_unmark_album">Stop skipping this album</string>
+    <string name="skip_mark_playlist">Skip this playlist in automatic queues</string>
+    <string name="skip_unmark_playlist">Stop skipping this playlist</string>
+    <!-- Translators: Settings row that opens the list of everything marked incognito or skipped. -->
+    <string name="marked_items">Marked items</string>
+    <string name="marked_items_desc">Songs, artists, albums and playlists marked incognito or skipped</string>
+    <string name="marked_items_empty">Nothing is marked</string>
+    <string name="marked_items_incognito">Always incognito</string>
+    <string name="marked_items_skip">Skipped in automatic queues</string>
+    <!-- Translators: Accessibility label for the button that removes a mark from the list. %1$s is the item name. -->
+    <string name="marked_items_remove">Remove mark from %1$s</string>
 </resources>

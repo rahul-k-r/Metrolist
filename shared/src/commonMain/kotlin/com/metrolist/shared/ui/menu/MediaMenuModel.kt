@@ -77,6 +77,7 @@ import com.metrolist.shared.model.previewAspectRatio
 import com.metrolist.shared.model.previewThumbnailUrl
 import com.metrolist.shared.settings.ArtistNameAliases
 import com.metrolist.shared.settings.HiddenHomeItems
+import com.metrolist.shared.settings.MarkKind
 import com.metrolist.shared.settings.displayName
 import com.metrolist.shared.settings.displayTitle
 import com.metrolist.shared.ui.components.AlertDialog
@@ -376,8 +377,10 @@ fun albumMediaMenuModel(
     onExport: (() -> Unit)? = null,
     onGoToArtist: ((String) -> Unit)? = null,
     additionalActions: List<PlayerMenuAction> = emptyList(),
+    loadMarkSongs: suspend () -> List<SongItem> = { loadMediaItemSongs(album) },
 ): MediaMenuModel {
     val saveToAccount = rememberAlbumSaveToAccountAction(album.id)
+    val markActions = collectionMarkMenuActions(MarkKind.ALBUM, album.id, album.title, album.thumbnail, loadMarkSongs, onDismiss)
     val addToPlaylistLabel = stringResource(Res.string.add_to_playlist)
     val exportAlbumLabel = stringResource(Res.string.export_album)
     val viewArtistLabel = stringResource(Res.string.view_artist)
@@ -445,6 +448,7 @@ fun albumMediaMenuModel(
                         }
                     }
                 },
+                markActions,
                 listOfNotNull(saveToAccount) + additionalActions,
             ),
     )
@@ -468,6 +472,7 @@ fun artistMediaMenuModel(
     onHideFromLibrary: (() -> Unit)? = null,
     additionalActions: List<PlayerMenuAction> = emptyList(),
 ): MediaMenuModel {
+    val markActions = artistMarkMenuActions(artist, onDismiss)
     val unblockLabel = stringResource(Res.string.unblock)
     val blockArtistLabel = stringResource(Res.string.block_artist)
     var editingAlias by remember(artist.id) { mutableStateOf(false) }
@@ -513,6 +518,7 @@ fun artistMediaMenuModel(
                     hideAction(onDismiss, { HiddenHomeItems.hide(artist) }, stringResource(Res.string.hide_from_home)),
                     hideAction(onDismiss, onHideFromLibrary),
                 ),
+                markActions,
                 additionalActions,
             ),
     )
@@ -543,7 +549,10 @@ fun playlistMediaMenuModel(
     onRename: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
     additionalActions: List<PlayerMenuAction> = emptyList(),
+    loadMarkSongs: suspend () -> List<SongItem> = { loadMediaItemSongs(playlist) },
 ): MediaMenuModel {
+    val markActions =
+        collectionMarkMenuActions(MarkKind.PLAYLIST, playlist.id, playlist.title, playlist.thumbnail, loadMarkSongs, onDismiss)
     val exportPlaylistLabel = stringResource(Res.string.export_playlist)
     val selectSongsLabel = stringResource(Res.string.select_songs)
     val renameLabel = stringResource(Res.string.rename)
@@ -606,6 +615,7 @@ fun playlistMediaMenuModel(
                         )
                     },
                 ),
+                markActions,
                 additionalActions,
             ),
     )

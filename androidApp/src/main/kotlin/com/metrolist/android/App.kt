@@ -58,7 +58,9 @@ import com.metrolist.shared.discord.observeDiscordInitialization
 import com.metrolist.shared.equalizer.EqualizerProfiles
 import com.metrolist.shared.listentogether.network.isAllowedListenTogetherServerUrl
 import com.metrolist.shared.settings.BlockedContent
+import com.metrolist.shared.settings.CollectionMarkMembers
 import com.metrolist.shared.settings.Settings
+import com.metrolist.shared.ui.menu.loadMarkedItemSongs
 import com.metrolist.shared.state.GlobalYouTube
 import com.metrolist.shared.state.SongLikeState
 import com.metrolist.shared.state.SongMetadataState
@@ -412,6 +414,10 @@ class App :
         }
         get<CoroutineScope>().launch(Dispatchers.IO) {
             if (get<SongDownloadManager>().hasRunnableDownloads()) DownloadService.start(this@App)
+        }
+        // Marked albums/playlists cover the songs inside them; reload those once per start (also covers marks synced in).
+        get<CoroutineScope>().launch(Dispatchers.IO) {
+            if (PlaybackNetworkStateStore.current.connected) CollectionMarkMembers.refreshMarked(::loadMarkedItemSongs)
         }
     }
 

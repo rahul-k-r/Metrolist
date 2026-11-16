@@ -9,6 +9,7 @@ import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.model.SortDirection
 import com.metrolist.shared.model.filterAndSortHistory
 import com.metrolist.shared.settings.BlockedContent
+import com.metrolist.shared.settings.CollectionMarkMembers
 import com.metrolist.shared.settings.IncognitoMarks
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.state.GlobalYouTubeRepository
@@ -153,6 +154,7 @@ private suspend fun <T> MusicDatabase.withHistoryStatExclusions(
                 BlockedContent.songIds(),
                 Settings.shared.incognitoModeEnabled,
                 IncognitoMarks.items(),
+                IncognitoMarks.collectionSongIds(),
             )
         val artists = excluded.artists
         val songIds = excluded.songIds
@@ -447,7 +449,8 @@ fun MusicDatabase.historyChanges(includeSongMetadata: Boolean = true): Flow<Unit
         ),
         BlockedContent.version,
         IncognitoMarks.version,
-    ) { _, _, _ -> }
+        CollectionMarkMembers.version,
+    ) { _, _, _, _ -> }
 
 fun MusicDatabase.collectionPlayCounts(songIds: List<String>? = null): Flow<Map<String, Int>> =
     historyChanges(includeSongMetadata = false)

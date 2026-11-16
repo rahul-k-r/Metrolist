@@ -56,6 +56,7 @@ fun PlaylistMenu(
             onExport = onExport,
             onRename = onRename,
             onDelete = onDelete,
+            loadMarkSongs = loadSongs,
         )
     MediaMenuBottomSheet(model = model, onDismissRequest = onDismiss, canDismiss = { !download.isConfirming() }) {
         MediaMenuSheetContent(model)

@@ -308,6 +308,9 @@ internal fun SettingsUiRegistryBuilder.registerPlaybackSettings(host: SharedSett
                 description = stringResource(Res.string.skip_marking_desc),
                 checked = settings.skipMarkingEnabled,
             ) { settings.skipMarkingEnabled = it }
+            custom("markedItems", stringResource(Res.string.marked_items), stringResource(Res.string.marked_items_desc)) {
+                MarkedItemsSettingRow()
+            }
             switch(
                 id = "legacyShuffle",
                 title = stringResource(Res.string.legacy_shuffle),

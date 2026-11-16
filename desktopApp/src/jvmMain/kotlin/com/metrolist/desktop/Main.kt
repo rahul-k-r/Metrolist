@@ -1482,6 +1482,24 @@ private fun runDesktopApp(args: Array<String>) {
             }
 
             LaunchedEffect(Unit) {
+                // Marked albums/playlists cover the songs inside them; reload those once per start (also covers marks synced in).
+                startup.appFrame.await()
+                withContext(Dispatchers.IO) {
+                    com.metrolist.shared.settings.CollectionMarkMembers.refreshMarked { mark ->
+                        val item: com.metrolist.shared.model.YTItem? =
+                            when (mark.kind) {
+                                com.metrolist.shared.settings.MarkKind.ALBUM ->
+                                    com.metrolist.shared.model.AlbumItem(mark.id, mark.title, mark.thumbnail, emptyList())
+                                com.metrolist.shared.settings.MarkKind.PLAYLIST ->
+                                    com.metrolist.shared.model.PlaylistItem(mark.id, mark.title, mark.thumbnail)
+                                else -> null
+                            }
+                        item?.let { com.metrolist.desktop.ui.components.loadMediaSongs(it, emptyList()) }
+                    }
+                }
+            }
+
+            LaunchedEffect(Unit) {
                 // With the setting off at launch there is nothing to undo, so do not touch the registry.
                 snapshotFlow { Settings.shared.startWithSystem }
                     .drop(if (Settings.shared.startWithSystem) 0 else 1)

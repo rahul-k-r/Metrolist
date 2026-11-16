@@ -9,7 +9,17 @@ import com.metrolist.shared.model.PodcastItem
 import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.model.YTItem
 import com.metrolist.shared.model.toSongItem
+import com.metrolist.shared.settings.MarkKind
+import com.metrolist.shared.settings.MarkedItem
 import com.metrolist.shared.state.GlobalYouTubeRepository
+
+/** The songs inside a marked album or playlist, or null for a mark this loader cannot resolve (built-in lists, other kinds). */
+suspend fun loadMarkedItemSongs(mark: MarkedItem): List<SongItem>? =
+    when (mark.kind) {
+        MarkKind.ALBUM -> loadMediaItemSongs(AlbumItem(mark.id, mark.title, mark.thumbnail, emptyList()))
+        MarkKind.PLAYLIST -> mark.id.takeUnless { it.startsWith("auto:") }?.let { loadMediaItemSongs(PlaylistItem(it, mark.title, mark.thumbnail)) }
+        else -> null
+    }
 
 suspend fun loadMediaItemSongs(item: YTItem): List<SongItem> {
     val repository = GlobalYouTubeRepository.instance

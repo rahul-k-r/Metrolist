@@ -95,6 +95,7 @@ fun AlbumMenu(
             onHideFromLibrary = onHideFromLibrary,
             onExport = onExport,
             onGoToArtist = onGoToArtist,
+            loadMarkSongs = loadSongs,
         )
     MediaMenuBottomSheet(model = model, onDismissRequest = onDismiss, canDismiss = { !loadingPlaylistSongs && !download.isConfirming() }) {
         MediaMenuSheetContent(model)

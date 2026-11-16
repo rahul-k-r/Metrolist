@@ -556,6 +556,9 @@ class Settings(
     var incognitoMarksJson by preference("")
     var skipMarkingEnabled by preference(false)
     var skipMarksJson by preference("")
+
+    /** Song ids inside marked albums/playlists, per device (each device loads them itself). */
+    var collectionMarkMembersJson by preference("")
     var providerLyricsOffsetsJson by preference("")
     var songTempoPitchJson by preference("")
 
@@ -1407,6 +1410,7 @@ class Settings(
                     "desktopTrayPlaylistMode",
                     "incognitoMarksJson",
                     "skipMarksJson",
+                    "collectionMarkMembersJson",
                     // Endpoints: a synced URL could redirect locally stored API keys/tokens to another host.
                     "lyricsAiBaseUrl",
                     "githubNTransformConfigUrl",

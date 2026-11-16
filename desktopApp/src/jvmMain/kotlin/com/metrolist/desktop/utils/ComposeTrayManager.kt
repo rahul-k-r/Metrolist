@@ -20,6 +20,7 @@ import com.metrolist.shared.generated.resources.repeat_mode_all
 import com.metrolist.shared.generated.resources.repeat_mode_off
 import com.metrolist.shared.generated.resources.repeat_mode_one
 import com.metrolist.shared.generated.resources.restart_queue
+import com.metrolist.shared.generated.resources.tray_play_mode
 import com.metrolist.shared.generated.resources.shuffle
 import com.metrolist.shared.model.RepeatMode
 import com.metrolist.shared.generated.resources.play_next
@@ -214,6 +215,7 @@ object ComposeTrayManager {
         val strRepeatOff = stringResource(Res.string.repeat_mode_off)
         val strRepeatAll = stringResource(Res.string.repeat_mode_all)
         val strRepeatOne = stringResource(Res.string.repeat_mode_one)
+        val strTrayPlayMode = stringResource(Res.string.tray_play_mode)
         val strRestartQueue = stringResource(Res.string.restart_queue)
         val strClearQueue = stringResource(Res.string.clear_queue)
 
@@ -322,20 +324,9 @@ object ComposeTrayManager {
                     Divider()
                 }
 
-                if (!isListenTogetherGuest && recentSongs.isNotEmpty()) {
-                    SubMenu(label = strRecentlyPlayed) {
-                        recentSongs.forEach { song ->
-                            SubMenu(label = song.title.takeIf { it.isNotBlank() } ?: strUnknownTitle) {
-                                Item(label = strPlay) { PlayerState.playTrack(song, recentSongs) }
-                                Item(label = strPlayNext) { PlayerState.playNext(song) }
-                                Item(label = strAddToQueue) { PlayerState.addToQueue(song) }
-                            }
-                        }
-                    }
-                }
-                if (libraryPlaylists.isNotEmpty()) {
-                    SubMenu(label = strPlaylists) {
-                        // The ticked mode decides what choosing a playlist below does.
+                if (!isListenTogetherGuest && (recentSongs.isNotEmpty() || libraryPlaylists.isNotEmpty())) {
+                    // The ticked mode decides what choosing a song or playlist below does.
+                    SubMenu(label = strTrayPlayMode) {
                         listOf(
                             TrayPlaylistPlayer.MODE_PLAY to strPlay,
                             TrayPlaylistPlayer.MODE_PLAY_NEXT to strPlayNext,
@@ -346,7 +337,19 @@ object ComposeTrayManager {
                                 playlistMode = mode
                             }
                         }
-                        Divider()
+                    }
+                }
+                if (!isListenTogetherGuest && recentSongs.isNotEmpty()) {
+                    SubMenu(label = strRecentlyPlayed) {
+                        recentSongs.forEach { song ->
+                            Item(label = song.title.takeIf { it.isNotBlank() } ?: strUnknownTitle) {
+                                TrayPlaylistPlayer.applySong(song, recentSongs, playlistMode)
+                            }
+                        }
+                    }
+                }
+                if (libraryPlaylists.isNotEmpty()) {
+                    SubMenu(label = strPlaylists) {
                         libraryPlaylists.take(TRAY_PLAYLIST_LIMIT).forEach { playlist ->
                             Item(
                                 label = playlist.name.takeIf { it.isNotBlank() } ?: strUnknownTitle,

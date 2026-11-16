@@ -25,6 +25,13 @@ internal fun shouldReconcilePlaybackServiceStart(
     player?.currentMediaItem == null || player.playbackState == Player.STATE_IDLE ||
         (intent?.action == Intent.ACTION_MEDIA_BUTTON && !player.playWhenReady)
 
+/**
+ * The startup placeholder is posted outside Media3's foreground tracking, so Media3 never removes it. With nothing to
+ * show (no item, or idle) no real notification replaces it, leaving an ongoing, undismissable card behind.
+ */
+internal fun shouldDropPlaybackPlaceholder(player: Player?): Boolean =
+    player?.currentMediaItem == null || player.playbackState == Player.STATE_IDLE
+
 internal fun Service.promotePlaybackServiceStart(notification: MediaNotification?) {
     val startupNotification =
         notification ?: MediaNotification(

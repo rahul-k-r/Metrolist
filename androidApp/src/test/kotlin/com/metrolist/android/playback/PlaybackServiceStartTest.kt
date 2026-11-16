@@ -96,6 +96,16 @@ class PlaybackServiceStartTest {
         assertTrue(shouldReconcilePlaybackServiceStart(selfStart, null))
     }
 
+    @Test
+    fun placeholderIsDroppedOnlyWhenNoRealNotificationCanReplaceIt() {
+        val item = MediaItem.Builder().setMediaId("track").build()
+        assertTrue(shouldDropPlaybackPlaceholder(null))
+        assertTrue(shouldDropPlaybackPlaceholder(player(null, Player.STATE_READY, false)))
+        assertTrue(shouldDropPlaybackPlaceholder(player(item, Player.STATE_IDLE, false)))
+        assertFalse(shouldDropPlaybackPlaceholder(player(item, Player.STATE_READY, false)))
+        assertFalse(shouldDropPlaybackPlaceholder(player(item, Player.STATE_READY, true)))
+    }
+
     private fun player(
         item: MediaItem?,
         state: Int,

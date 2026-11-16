@@ -2261,6 +2261,9 @@ class MusicService :
                     if (shouldReconcilePlaybackServiceStart(intent, media3Player)) {
                         triggerNotificationUpdate()
                     }
+                    if (shouldDropPlaybackPlaceholder(media3Player)) {
+                        ServiceCompat.stopForeground(this@MusicService, ServiceCompat.STOP_FOREGROUND_REMOVE)
+                    }
                 }
         }
         super.onStartCommand(intent, flags, startId)

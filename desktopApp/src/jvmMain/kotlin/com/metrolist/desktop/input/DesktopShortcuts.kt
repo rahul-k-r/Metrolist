@@ -404,8 +404,7 @@ internal fun handleShortcut(
             }
 
             UiState.showVideoFullscreen -> {
-                // Video is a mode of the expanded player: leaving it returns to audio, not to a stacked audio view.
-                PlayerState.closeVideoViewer()
+                PlayerState.leaveVideoFullscreen()
                 true
             }
 

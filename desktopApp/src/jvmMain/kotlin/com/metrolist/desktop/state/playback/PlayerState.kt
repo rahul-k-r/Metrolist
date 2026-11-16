@@ -1200,6 +1200,12 @@ object PlayerState {
         }
     }
 
+    /** Back from fullscreen video: straight to the main screen, video keeps playing in the mini viewer. */
+    fun leaveVideoFullscreen() {
+        UiState.showVideoFullscreen = false
+        exitExpanded()
+    }
+
     fun closeFullscreenPlayer() {
         UiState.playerPresentation.closePlayer()
         UiState.isPlayerExpanded = isExpanded
@@ -1410,6 +1416,13 @@ object PlayerState {
         UiState.showVideoViewer
         scope.launch {
             snapshotFlow { isVideoPresented }.collect { video.updateVisibility() }
+        }
+        // Video replaces the audio screen: the expanded view never shows audio while video mode is on,
+        // whether video was requested while it was open (e.g. from a remote) or it is opened afterwards.
+        scope.launch {
+            snapshotFlow { UiState.showVideoViewer && isExpanded && !deviceConnect.isFollowing }
+                .distinctUntilChanged()
+                .collect { if (it) UiState.showVideoFullscreen = true }
         }
         scope.launch {
             snapshotFlow {

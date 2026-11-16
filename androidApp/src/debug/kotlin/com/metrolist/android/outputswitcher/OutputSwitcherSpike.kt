@@ -78,7 +78,7 @@ object OutputSwitcherSpike {
                     spikeLog("targets changed: ${targets.map { "${it.name}[${it.routeId}]" }}")
                     provider.publish(targets)
                     publishListingPreference(app, router, targets)
-                    publishSuggestions(app, targets)
+                    // Suggestions are not published: the docs describe no way to receive a tap on one, so the chip did nothing.
                 }
         }
     }

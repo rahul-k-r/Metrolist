@@ -16,7 +16,10 @@ object MediaSessionConstants {
     const val ACTION_TOGGLE_SHUFFLE = "TOGGLE_SHUFFLE"
     const val ACTION_ADD_TO_TARGET_PLAYLIST = "ADD_TO_TARGET_PLAYLIST"
 
-    val CommandAddToQueue = SessionCommand(ACTION_ADD_TO_QUEUE, Bundle.EMPTY)
+    const val ACTION_SWITCH_DEVICE = "SWITCH_DEVICE"
+
+    val CommandSwitchDevice = SessionCommand(ACTION_SWITCH_DEVICE, Bundle.EMPTY)
+    val CommandAddToQueue =SessionCommand(ACTION_ADD_TO_QUEUE, Bundle.EMPTY)
     val CommandToggleLike = SessionCommand(ACTION_TOGGLE_LIKE, Bundle.EMPTY)
     val CommandToggleStartRadio = SessionCommand(ACTION_TOGGLE_START_RADIO, Bundle.EMPTY)
     val CommandToggleRepeat = SessionCommand(ACTION_TOGGLE_REPEAT, Bundle.EMPTY)

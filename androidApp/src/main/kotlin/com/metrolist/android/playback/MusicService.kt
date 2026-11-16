@@ -921,18 +921,34 @@ class MusicService :
         serviceScope.launch {
             (application as App).startup.await()
             val startRadioLabel = getString(SharedRes.string.sharedStartRadio)
-            combine(player.currentSong, SongLikeState.likedSongsFlow, _repeatMode, _shuffleModeEnabled) { song, _, repeatMode, shuffle ->
-                listOf(song?.id, song?.id?.let(SongLikeState::isLiked), repeatMode, shuffle)
+            val deviceSwitch =
+                combine(AndroidDeviceConnect.manager.state, AndroidDeviceConnect.manager.remote.state) { devices, sync ->
+                    deviceSwitchAction(
+                        devices.localDeviceId,
+                        sync.sessionId != null,
+                        sync.targetId,
+                        devices.peers,
+                    )
+                }.distinctUntilChanged()
+            combine(
+                player.currentSong,
+                SongLikeState.likedSongsFlow,
+                _repeatMode,
+                _shuffleModeEnabled,
+                deviceSwitch,
+            ) { song, _, repeatMode, shuffle, switch ->
+                listOf(song?.id, song?.id?.let(SongLikeState::isLiked), repeatMode, shuffle, switch)
             }.distinctUntilChanged().collect {
                 mediaSession?.setMediaButtonPreferences(
                     ImmutableList.copyOf(
                         transportButtons() +
-                            listOf(
+                            listOfNotNull(
                                 createLikeButton(),
                                 createRepeatButton(),
                                 createShuffleButton(),
                                 createRadioButton(startRadioLabel),
                                 createAddToPlaylistButton(),
+                                (it.last() as? DeviceSwitchAction)?.let(::createDeviceSwitchButton),
                             ),
                     ),
                 )
@@ -2166,6 +2182,14 @@ class MusicService :
             .setEnabled(player.currentSong.value != null)
             .build()
 
+    private fun createDeviceSwitchButton(action: DeviceSwitchAction): CommandButton =
+        CommandButton
+            .Builder(CommandButton.ICON_UNDEFINED)
+            .setCustomIconResId(R.drawable.ic_notification_devices)
+            .setDisplayName(action.label)
+            .setSessionCommand(MediaSessionConstants.CommandSwitchDevice)
+            .build()
+
     private fun createRadioButton(label: String): CommandButton =
         CommandButton
             .Builder(CommandButton.ICON_RADIO)
@@ -3007,6 +3031,7 @@ class MusicService :
                     commands.add(MediaSessionConstants.CommandToggleLike)
                     commands.add(MediaSessionConstants.CommandToggleShuffle)
                     commands.add(MediaSessionConstants.CommandToggleRepeat)
+                    commands.add(MediaSessionConstants.CommandSwitchDevice)
                     MediaArtworkProvider.allowedPackages += controller.packageName
                 }
                 return MediaSession.ConnectionResult.accept(
@@ -3028,6 +3053,7 @@ class MusicService :
                     .add(MediaSessionConstants.CommandToggleRepeat)
                     .add(MediaSessionConstants.CommandToggleShuffle)
                     .add(MediaSessionConstants.CommandToggleStartRadio)
+                    .add(MediaSessionConstants.CommandSwitchDevice)
                     .add(MediaSessionConstants.CommandAddToQueue)
                     .add(MediaSessionConstants.CommandAddToTargetPlaylist)
                     .build()
@@ -3141,6 +3167,13 @@ class MusicService :
                             append = { items -> session.player.addMediaItems(items) },
                         )
                     }
+                }
+
+                MediaSessionConstants.ACTION_SWITCH_DEVICE -> {
+                    val devices = AndroidDeviceConnect.manager.state.value
+                    val sync = AndroidDeviceConnect.manager.remote.state.value
+                    deviceSwitchAction(devices.localDeviceId, sync.sessionId != null, sync.targetId, devices.peers)
+                        ?.let { AndroidDeviceConnect.manager.remote.transferTo(it.targetDeviceId) }
                 }
 
                 MediaSessionConstants.ACTION_TOGGLE_LIKE -> {

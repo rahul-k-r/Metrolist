@@ -950,11 +950,12 @@ class MusicService :
                         transportButtons() +
                             listOfNotNull(
                                 createLikeButton(),
+                                // Ahead of repeat so it wins the notification's forward-secondary slot.
+                                (it.last() as? DeviceSwitchAction)?.let(::createDeviceSwitchButton),
                                 createRepeatButton(),
                                 createShuffleButton(),
                                 createRadioButton(startRadioLabel),
                                 createAddToPlaylistButton(),
-                                (it.last() as? DeviceSwitchAction)?.let(::createDeviceSwitchButton),
                             ),
                     ),
                 )
@@ -2194,6 +2195,7 @@ class MusicService :
             .setCustomIconResId(R.drawable.ic_notification_devices)
             .setDisplayName(action.label)
             .setSessionCommand(MediaSessionConstants.CommandSwitchDevice)
+            .setSlots(CommandButton.SLOT_FORWARD_SECONDARY, CommandButton.SLOT_OVERFLOW)
             .build()
 
     private fun createRadioButton(label: String): CommandButton =

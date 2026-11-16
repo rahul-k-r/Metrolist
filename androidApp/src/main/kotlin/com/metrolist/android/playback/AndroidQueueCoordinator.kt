@@ -945,6 +945,7 @@ internal class AndroidQueueCoordinator(
 
     suspend fun advanceQueueAfterCurrent(completedPlaybackInstanceId: Long? = null) {
         if (transitions.consumeCrossfadeCompletion(completedPlaybackInstanceId) || transitions.isCrossfading) return
+        if (completedPlaybackInstanceId != null && completedPlaybackInstanceId != player.currentPlaybackInstanceId) return
         if (AndroidDeviceConnect.manager.remote.isActive) {
             // A target hands off to its preloaded next track itself; MusicService reports the change to the session.
             if (completedPlaybackInstanceId != null && AndroidDeviceConnect.manager.remote.allowsLocalTransitions &&

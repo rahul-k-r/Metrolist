@@ -833,7 +833,7 @@ class MusicService :
         source: PlaybackSeekSource = PlaybackSeekSource.Other,
     ) {
         if (player.currentSong.value?.isLive == true) return
-        transitions.cancelAndroidCrossfade()
+        if (transitions.isCrossfading) transitions.cancelAndroidCrossfade()
         player.seekTo(positionMs, source)
     }
 
@@ -2631,6 +2631,10 @@ class MusicService :
     }
 
     private suspend fun handlePlaybackCompletion(completedPlaybackInstanceId: Long? = null) {
+        if (completedPlaybackInstanceId != null && completedPlaybackInstanceId != player.currentPlaybackInstanceId) {
+            transitions.consumeCrossfadeCompletion(completedPlaybackInstanceId)
+            return
+        }
         flushPodcastProgress()
         savePlaybackState()
         if (sleepTimerController.isStopAfterCurrentSong) {

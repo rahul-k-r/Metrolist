@@ -29,6 +29,7 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.NetworkInterface
 import java.net.URI
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.concurrent.thread
@@ -562,6 +563,9 @@ class JvmCastManager(
             devicesById.values.sortedWith(compareBy<CastDevice> { it.name.lowercase() }.thenBy { it.protocol.ordinal })
     }
 
+    // Logs each unreadable device once per session, since discovery repeats every few seconds.
+    private val failedDlnaLocations = ConcurrentHashMap.newKeySet<String>()
+
     private suspend fun discoverDlna(
         addresses: List<InetAddress>,
         generation: Long,
@@ -590,6 +594,16 @@ class JvmCastManager(
                                     port = uri.port.takeIf { it >= 0 } ?: 80,
                                     endpoint = location,
                                 )
+                            }.onFailure { error ->
+                                if (error is CancellationException) throw error
+                                if (failedDlnaLocations.add(location)) {
+                                    PlaybackEventLog.error(
+                                        PlaybackEventKind.NETWORK,
+                                        "CastDiscovery",
+                                        "DLNA device description failed",
+                                        error,
+                                    )
+                                }
                             }.getOrNull()
                         }
                     }.awaitAll()

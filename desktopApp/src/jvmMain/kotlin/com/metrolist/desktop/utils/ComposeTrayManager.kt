@@ -42,6 +42,7 @@ import com.metrolist.shared.generated.resources.tray_play
 import com.metrolist.shared.generated.resources.tray_previous_track
 import com.metrolist.shared.generated.resources.tray_quit_metrolist
 import com.metrolist.shared.generated.resources.tray_settings
+import com.metrolist.shared.generated.resources.tray_show_floating_lyrics
 import com.metrolist.shared.generated.resources.tray_show_miniplayer
 import com.metrolist.shared.generated.resources.tray_show_window
 import com.metrolist.shared.generated.resources.tray_tooltip_paused
@@ -205,6 +206,7 @@ object ComposeTrayManager {
         val strHideWindow = stringResource(Res.string.tray_hide_window)
         val strShowWindow = stringResource(Res.string.tray_show_window)
         val strShowMiniplayer = stringResource(Res.string.tray_show_miniplayer)
+        val strShowFloatingLyrics = stringResource(Res.string.tray_show_floating_lyrics)
         val strSettings = stringResource(Res.string.tray_settings)
         val strQuitMetrolist = stringResource(Res.string.tray_quit_metrolist)
         val strTrayByTemplate = stringResource(Res.string.tray_by)
@@ -394,6 +396,10 @@ object ComposeTrayManager {
 
                 Item(label = strShowMiniplayer) {
                     PlayerState.showMiniplayer = true
+                }
+
+                Item(label = strShowFloatingLyrics) {
+                    PlayerState.showFloatingLyrics = true
                 }
 
                 Divider()

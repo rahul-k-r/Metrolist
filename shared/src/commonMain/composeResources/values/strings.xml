@@ -4816,6 +4816,9 @@
     <string name="subtitles">Subtitles</string>
     <!-- Translators: Imperative action label for open miniplayer in the connected-player controls. -->
     <string name="open_miniplayer">Open miniplayer</string>
+    <string name="floating_lyrics">Floating lyrics</string>
+    <string name="tray_show_floating_lyrics">Show floating lyrics</string>
+    <string name="floating_lyrics_hide_from_capture">Hide from screen recording</string>
     <!-- Translators: Label for active in the connected-player controls. -->
     <string name="active">Active</string>
 

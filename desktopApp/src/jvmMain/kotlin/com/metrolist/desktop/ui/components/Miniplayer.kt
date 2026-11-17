@@ -714,7 +714,7 @@ private fun PlaybackControls(colorScheme: ColorScheme) {
 }
 
 @Composable
-private fun MiniplayerProgress(
+internal fun MiniplayerProgress(
     colorScheme: ColorScheme,
     enabled: Boolean,
     modifier: Modifier = Modifier,

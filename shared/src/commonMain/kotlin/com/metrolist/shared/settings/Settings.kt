@@ -343,6 +343,8 @@ class Settings(
     var expressiveMiniPlayerShapeMotion by preference(ExpressiveMiniPlayerShapeMotionKey, true)
 
     var miniplayerFocusMode by preference(false)
+    var showFloatingLyrics by preference(false)
+    var floatingLyricsHideFromCapture by preference(false)
     var miniPlayerBackgroundStyle by preference("DEFAULT")
     var playerThumbnailStyle by preference(PlayerThumbnailStyle.COMPACT)
     var castEnabled by preference(CastEnabledKey, true)

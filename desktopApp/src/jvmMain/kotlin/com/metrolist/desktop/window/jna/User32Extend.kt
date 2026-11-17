@@ -55,6 +55,11 @@ internal interface User32Extend : User32 {
 
     fun GetDpiForWindow(hWnd: HWND): UINT
 
+    fun SetWindowDisplayAffinity(
+        hWnd: HWND,
+        dwAffinity: Int,
+    ): Boolean
+
     fun ScreenToClient(
         hWnd: HWND,
         lpPoint: POINT,

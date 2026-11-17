@@ -2560,6 +2560,7 @@ object PlayerState {
         }.stateIn(scope, SharingStarted.Eagerly, DesktopMediaControls())
 
     var showMiniplayer by Settings.shared::showMiniplayer
+    var showFloatingLyrics by Settings.shared::showFloatingLyrics
     var miniplayerFocusMode by Settings.shared::miniplayerFocusMode
 
     fun toggleShuffle() {

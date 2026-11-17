@@ -69,6 +69,7 @@ import com.metrolist.shared.generated.resources.menu_keyboard_shortcuts
 import com.metrolist.shared.generated.resources.menu_library
 import com.metrolist.shared.generated.resources.menu_love_song
 import com.metrolist.shared.generated.resources.menu_minimize
+import com.metrolist.shared.generated.resources.floating_lyrics
 import com.metrolist.shared.generated.resources.menu_miniplayer
 import com.metrolist.shared.generated.resources.menu_mute
 import com.metrolist.shared.generated.resources.menu_new_playlist
@@ -707,6 +708,10 @@ fun FrameWindowScope.DesktopMenuBar(
                 icon = menuIcon(miniplayerPainter),
                 onClick = { PlayerState.showMiniplayer = !PlayerState.showMiniplayer },
                 shortcut = KeyShortcut(Key.M, meta = true, shift = true),
+            )
+            Item(
+                text = stringResource(Res.string.floating_lyrics),
+                onClick = { PlayerState.showFloatingLyrics = !PlayerState.showFloatingLyrics },
             )
         }
 

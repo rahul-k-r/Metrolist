@@ -2967,6 +2967,18 @@ class MusicService :
             super.onDestroy()
             return
         }
+        // A failure while saving state must not leak the session, or the next service fails with a duplicate session ID.
+        try {
+            releasePlaybackState()
+        } finally {
+            mediaSession?.release()
+            MediaArtworkProvider.currentArtwork = null
+            player.release()
+            super.onDestroy()
+        }
+    }
+
+    private fun releasePlaybackState() {
         val checkpoint = saveFinalPlaybackState()
         updatePodcastProgress()
         val podcastWrite = podcastProgress.flush()
@@ -2987,10 +2999,6 @@ class MusicService :
         castManager.closeImmediately()
         serviceScope.cancel()
         contentResolver.unregisterContentObserver(volumeMuteObserver)
-        mediaSession?.release()
-        MediaArtworkProvider.currentArtwork = null
-        player.release()
-        super.onDestroy()
     }
 
     private data class PlaybackFetchResult(

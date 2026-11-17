@@ -111,10 +111,10 @@ import com.metrolist.desktop.storage.SongCacheManager
 import com.metrolist.desktop.ui.DesktopDensityProvider
 import com.metrolist.desktop.ui.components.DesktopMenuBar
 import com.metrolist.desktop.ui.components.DesktopPlayerVisibility
+import com.metrolist.desktop.ui.components.FloatingLyricsWindow
 import com.metrolist.desktop.ui.components.FloatingSearchOverlay
 import com.metrolist.desktop.ui.components.FullscreenPlayerView
 import com.metrolist.desktop.ui.components.LocalCaptionBarInsets
-import com.metrolist.desktop.ui.components.FloatingLyricsWindow
 import com.metrolist.desktop.ui.components.MiniplayerWindow
 import com.metrolist.desktop.ui.components.ShortcutsOverlay
 import com.metrolist.desktop.ui.components.TokenLoginDialog
@@ -223,11 +223,11 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -584,7 +584,6 @@ private fun WindowScope.AppContent(
         }
 
         if (integrationsReady) MiniplayerWindow()
-        if (integrationsReady) FloatingLyricsWindow()
 
         if (UiState.showFloatingSearch) {
             FloatingSearchOverlay(
@@ -1490,13 +1489,24 @@ private fun runDesktopApp(args: Array<String>) {
                     com.metrolist.shared.settings.CollectionMarkMembers.refreshMarked { mark ->
                         val item: com.metrolist.shared.model.YTItem? =
                             when (mark.kind) {
-                                com.metrolist.shared.settings.MarkKind.ALBUM ->
-                                    com.metrolist.shared.model.AlbumItem(mark.id, mark.title, mark.thumbnail, emptyList())
-                                com.metrolist.shared.settings.MarkKind.PLAYLIST ->
-                                    com.metrolist.shared.model.PlaylistItem(mark.id, mark.title, mark.thumbnail)
-                                else -> null
+                                com.metrolist.shared.settings.MarkKind.ALBUM -> {
+                                    com.metrolist.shared.model
+                                        .AlbumItem(mark.id, mark.title, mark.thumbnail, emptyList())
+                                }
+
+                                com.metrolist.shared.settings.MarkKind.PLAYLIST -> {
+                                    com.metrolist.shared.model
+                                        .PlaylistItem(mark.id, mark.title, mark.thumbnail)
+                                }
+
+                                else -> {
+                                    null
+                                }
                             }
-                        item?.let { com.metrolist.desktop.ui.components.loadMediaSongs(it, emptyList()) }
+                        item?.let {
+                            com.metrolist.desktop.ui.components
+                                .loadMediaSongs(it, emptyList())
+                        }
                     }
                 }
             }
@@ -1594,6 +1604,12 @@ private fun runDesktopApp(args: Array<String>) {
                     }
                 }
             }
+        }
+
+        // Composed here, not inside the main window: a hidden (tray) main window gets no frame ticks, which froze the
+        // floating window's recomposition.
+        if (integrationsReady && backendReady) {
+            FloatingLyricsWindow()
         }
 
         if (integrationsReady) ComposeTrayManager.TrayIcon()

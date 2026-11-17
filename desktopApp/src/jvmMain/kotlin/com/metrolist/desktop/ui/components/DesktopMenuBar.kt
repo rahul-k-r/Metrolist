@@ -39,6 +39,7 @@ import com.metrolist.desktop.utils.MacMenuBarTemplateHelper
 import com.metrolist.desktop.utils.ThemeUtils
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.close
+import com.metrolist.shared.generated.resources.floating_lyrics
 import com.metrolist.shared.generated.resources.home
 import com.metrolist.shared.generated.resources.menu_about_metrolist
 import com.metrolist.shared.generated.resources.menu_account
@@ -69,7 +70,6 @@ import com.metrolist.shared.generated.resources.menu_keyboard_shortcuts
 import com.metrolist.shared.generated.resources.menu_library
 import com.metrolist.shared.generated.resources.menu_love_song
 import com.metrolist.shared.generated.resources.menu_minimize
-import com.metrolist.shared.generated.resources.floating_lyrics
 import com.metrolist.shared.generated.resources.menu_miniplayer
 import com.metrolist.shared.generated.resources.menu_mute
 import com.metrolist.shared.generated.resources.menu_new_playlist

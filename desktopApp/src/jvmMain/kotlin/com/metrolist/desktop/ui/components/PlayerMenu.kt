@@ -69,6 +69,7 @@ import com.metrolist.shared.generated.resources.hide_lyrics
 import com.metrolist.shared.generated.resources.hide_queue
 import com.metrolist.shared.generated.resources.lyrics_offset
 import com.metrolist.shared.generated.resources.lyrics_respect_agent_positioning
+import com.metrolist.shared.generated.resources.lyrics_show_floating
 import com.metrolist.shared.generated.resources.lyrics_show_translations
 import com.metrolist.shared.generated.resources.manual_translate_this_track
 import com.metrolist.shared.generated.resources.no_provider_results_found
@@ -249,6 +250,15 @@ fun LyricsActionsMenuCard(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 color = colorScheme.onSurface.copy(alpha = 0.12f),
             )
+
+            LyricsActionRow(
+                icon = MetrolistIcons.Outlined.Lyrics,
+                title = stringResource(Res.string.lyrics_show_floating),
+                colorScheme = colorScheme,
+            ) {
+                PlayerState.showFloatingLyrics = true
+                onDismiss()
+            }
 
             if (LyricsState.currentLyricsEntries.any { it.time > 0L }) {
                 LyricsActionRow(

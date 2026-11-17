@@ -345,6 +345,7 @@ class Settings(
     var miniplayerFocusMode by preference(false)
     var showFloatingLyrics by preference(false)
     var floatingLyricsHideFromCapture by preference(false)
+    var floatingLyricsTranslucent by preference(false)
     var miniPlayerBackgroundStyle by preference("DEFAULT")
     var playerThumbnailStyle by preference(PlayerThumbnailStyle.COMPACT)
     var castEnabled by preference(CastEnabledKey, true)
@@ -1407,6 +1408,10 @@ class Settings(
                     "expandedPlayerShowQueue",
                     "expandedPlayerShowLyrics",
                     "minimizeToTrayOnClose",
+                    // Window state: a synced device must never pop the floater open (or hide it) on another machine.
+                    "showFloatingLyrics",
+                    "floatingLyricsHideFromCapture",
+                    "floatingLyricsTranslucent",
                     "desktopTrayToggleOnClick",
                     "desktopTrayClickPlayPause",
                     "desktopTrayPlaylistMode",

@@ -4819,6 +4819,8 @@
     <string name="floating_lyrics">Floating lyrics</string>
     <string name="tray_show_floating_lyrics">Show floating lyrics</string>
     <string name="floating_lyrics_hide_from_capture">Hide from screen recording</string>
+    <string name="floating_lyrics_translucent">Translucent mode</string>
+    <string name="lyrics_show_floating">Show floating lyrics</string>
     <!-- Translators: Label for active in the connected-player controls. -->
     <string name="active">Active</string>
 

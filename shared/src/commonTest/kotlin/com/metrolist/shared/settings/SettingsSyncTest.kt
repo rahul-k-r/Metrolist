@@ -36,6 +36,20 @@ class SettingsSyncTest {
     }
 
     @Test
+    fun floatingLyricsWindowStateStaysOnThisDevice() {
+        val settings = Settings.shared
+        settings.showFloatingLyrics = true
+        settings.floatingLyricsHideFromCapture = true
+        settings.floatingLyricsTranslucent = true
+
+        val keys = settings.exportSyncSettings().entries.map { it.key }.toSet()
+
+        assertFalse("showFloatingLyrics" in keys)
+        assertFalse("floatingLyricsHideFromCapture" in keys)
+        assertFalse("floatingLyricsTranslucent" in keys)
+    }
+
+    @Test
     fun importIgnoresExcludedAndUnknownKeys() {
         val settings = Settings.shared
         settings.lyricsAiBaseUrl = "https://mine.invalid/v1"

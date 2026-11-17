@@ -585,6 +585,24 @@ tasks.withType<JavaExec>().configureEach {
     }
 }
 
+// `run` gets its own data, config, state and cache roots, so a dev instance runs beside an installed release: the
+// single-instance lock and the database both live under these roots. Use -PdevProfile=<name> for several at once.
+tasks.withType<JavaExec>().matching { it.name == "run" }.configureEach {
+    val profile = providers.gradleProperty("devProfile").orElse("dev").get()
+    val root =
+        layout.buildDirectory
+            .dir("dev-profiles/$profile")
+            .get()
+            .asFile
+    environment("XDG_DATA_HOME", File(root, "data").absolutePath)
+    environment("XDG_CONFIG_HOME", File(root, "config").absolutePath)
+    environment("XDG_STATE_HOME", File(root, "state").absolutePath)
+    environment("XDG_CACHE_HOME", File(root, "cache").absolutePath)
+    environment("LOCALAPPDATA", File(root, "localappdata").absolutePath)
+    // JavaCPP's per-user cache is shared with any running release, which keeps the FFmpeg DLLs locked.
+    jvmArgs("-Dorg.bytedeco.javacpp.cachedir=${File(root, "javacpp-cache").absolutePath}")
+}
+
 tasks.withType<Test>().configureEach {
     jvmArgs("--enable-native-access=ALL-UNNAMED", "--sun-misc-unsafe-memory-access=allow")
 }

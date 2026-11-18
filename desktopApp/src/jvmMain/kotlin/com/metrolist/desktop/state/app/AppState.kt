@@ -11,7 +11,7 @@ import com.metrolist.desktop.state.content.SearchState
 import com.metrolist.desktop.update.DesktopUpdateManager
 import com.metrolist.desktop.update.GitHubDesktopRelease
 import com.metrolist.desktop.update.desktopUpdateCheckIsDue
-import com.metrolist.desktop.update.isNewerDesktopVersion
+import com.metrolist.desktop.update.newestDesktopUpdate
 import com.metrolist.desktop.utils.AppLogger
 import com.metrolist.shared.BuildConfig
 import com.metrolist.shared.api.artwork.AnimatedArtworkService
@@ -61,7 +61,7 @@ object AppState {
 
     private suspend fun applyReleases(releases: List<GitHubDesktopRelease>) {
         UiState.updateReleases = releases
-        val update = releases.firstOrNull { isNewerDesktopVersion(it.version, BuildConfig.APP_VERSION) }
+        val update = newestDesktopUpdate(releases, BuildConfig.APP_VERSION)
         if (UiState.availableUpdate?.version != update?.version) UiState.updateDownloadError = null
         UiState.availableUpdate = update
         UiState.canInstallUpdate = UiState.availableUpdate?.let { DesktopUpdateManager.canInstall(it) } == true

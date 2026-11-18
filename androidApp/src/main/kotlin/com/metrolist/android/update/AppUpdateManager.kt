@@ -208,7 +208,7 @@ object AppUpdateManager {
                     if (!crashRecovery) Settings.shared.cachedUpdateReleasesJson = json.encodeToString(publicReleases)
                     val now = System.currentTimeMillis()
                     if (!crashRecovery) Settings.shared.lastUpdateCheckTimestamp = now
-                    val update = publicReleases.firstOrNull { compareVersions(it.version, currentVersion) > 0 }
+                    val update = newestInstallableUpdate(publicReleases, currentVersion)
                     if (!crashRecovery) Settings.shared.cachedAvailableUpdateJson = update?.let { json.encodeToString(it) }.orEmpty()
                     mutableState.value = if (update == null) AppUpdateState.UpToDate(now) else AppUpdateState.Available(update)
                     if (update != null && notify && !crashRecovery) notifyAvailable(context, update)
@@ -500,6 +500,12 @@ object AppUpdateManager {
     }
 
     private fun sha256(value: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(value).joinToString("") { "%02x".format(it) }
+
+    /** Newest release above [currentVersion] that ships an installable APK; desktop-only releases are skipped. */
+    internal fun newestInstallableUpdate(
+        releasesNewestFirst: List<GitHubRelease>,
+        currentVersion: String,
+    ): GitHubRelease? = releasesNewestFirst.firstOrNull { it.apk != null && compareVersions(it.version, currentVersion) > 0 }
 
     internal fun compareVersions(
         left: String,

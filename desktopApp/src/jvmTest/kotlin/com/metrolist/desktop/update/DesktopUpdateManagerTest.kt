@@ -22,20 +22,36 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
+private const val WINDOWS_ASSET =
+    """{"name":"metrolist-desktop-windows-arm64-1.zip","state":"uploaded","size":1,"browser_download_url":"https://example.com/w"}"""
+
 class DesktopUpdateManagerTest {
     @Test
     fun releaseListSupportsPrereleaseOnlyRepositoriesAndStableInstallerSelection() {
         val candidates = """[
             {"tag_name":"nightly","draft":false,"prerelease":true,"assets":[]},
-            {"tag_name":"v14.0.0-rc7","draft":false,"prerelease":true,"assets":[]},
-            {"tag_name":"v14.0.0-rc10","draft":false,"prerelease":true,"assets":[]},
-            {"tag_name":"v14.0.0","draft":true,"prerelease":false,"assets":[]},
-            {"tag_name":"v13.7.0","draft":false,"prerelease":false,"assets":[]}
+            {"tag_name":"v14.0.0-rc7","draft":false,"prerelease":true,"assets":[$WINDOWS_ASSET]},
+            {"tag_name":"v14.0.0-rc10","draft":false,"prerelease":true,"assets":[$WINDOWS_ASSET]},
+            {"tag_name":"v14.0.0","draft":true,"prerelease":false,"assets":[$WINDOWS_ASSET]},
+            {"tag_name":"v13.7.0","draft":false,"prerelease":false,"assets":[$WINDOWS_ASSET]}
         ]"""
         assertEquals("14.0.0-rc10", DesktopUpdateManager.findUpdate(candidates, "14.0.0-rc6")?.version)
         assertNull(DesktopUpdateManager.findUpdate(candidates, "14.0.0-rc10"))
         assertNull(DesktopUpdateManager.findUpdate(candidates, "14.0.0-rc6", includePrereleases = false))
         assertEquals("13.7.0", DesktopUpdateManager.findUpdate(candidates, "13.6.0", includePrereleases = false)?.version)
+    }
+
+    @Test
+    fun updateSelectionSkipsReleasesWithoutAWindowsAsset() {
+        val releases = DesktopUpdateManager.parseReleases(
+            """[
+            {"tag_name":"v14.0.0+0.1.7","draft":false,"prerelease":false,"assets":[{"name":"Metrolist.apk","state":"uploaded","size":1,"browser_download_url":"https://example.com/a"}]},
+            {"tag_name":"v14.0.0+0.1.6","draft":false,"prerelease":false,"assets":[$WINDOWS_ASSET]}
+        ]""",
+        )
+        assertEquals("14.0.0+0.1.6", newestDesktopUpdate(releases, "14.0.0+0.1.5")?.version)
+        assertNull(newestDesktopUpdate(releases, "14.0.0+0.1.6"))
+        assertNull(newestDesktopUpdate(releases, "14.0.0+0.1.7"))
     }
 
     @Test

@@ -29,12 +29,25 @@ class AppUpdateManagerTest {
         assertNull(releaseWithAssets("Metrolist.apk", "METROLIST.APK").apk)
     }
 
-    private fun releaseWithAssets(vararg names: String) =
-        GitHubRelease(
-            tagName = "v14.0.0",
-            htmlUrl = "https://github.com/MetrolistGroup/Metrolist/releases/tag/v14.0.0",
-            assets = names.map { GitHubReleaseAsset(it, "uploaded", 100, downloadUrl = "https://example.com/$it") },
-        )
+    @Test
+    fun updateSelectionSkipsReleasesWithoutAnApk() {
+        val desktopOnly = releaseWithAssets("metrolist-windows-x64.zip", tag = "v14.0.0+0.1.7")
+        val withApk = releaseWithAssets("Metrolist.apk", tag = "v14.0.0+0.1.6")
+        val releases = listOf(desktopOnly, withApk)
+
+        assertEquals(withApk, AppUpdateManager.newestInstallableUpdate(releases, "14.0.0+0.1.5"))
+        assertNull(AppUpdateManager.newestInstallableUpdate(releases, "14.0.0+0.1.6"))
+        assertNull(AppUpdateManager.newestInstallableUpdate(releases, "14.0.0+0.1.7"))
+    }
+
+    private fun releaseWithAssets(
+        vararg names: String,
+        tag: String = "v14.0.0",
+    ) = GitHubRelease(
+        tagName = tag,
+        htmlUrl = "https://github.com/MetrolistGroup/Metrolist/releases/tag/$tag",
+        assets = names.map { GitHubReleaseAsset(it, "uploaded", 100, downloadUrl = "https://example.com/$it") },
+    )
 
     @Test
     fun apkSignerMustMatchCurrentSignerOrProveForwardRotation() {

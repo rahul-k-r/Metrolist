@@ -104,8 +104,7 @@ object DesktopUpdateManager {
         currentVersion: String,
         includePrereleases: Boolean = true,
     ): GitHubDesktopRelease? =
-        parseReleases(releasesJson)
-            .firstOrNull { (includePrereleases || !it.prerelease) && isNewerDesktopVersion(it.version, currentVersion) }
+        newestDesktopUpdate(parseReleases(releasesJson), currentVersion, includePrereleases)
 
     suspend fun canInstall(release: GitHubDesktopRelease): Boolean =
         withContext(Dispatchers.IO) { release.canInstall(installationRoot() != null) }
@@ -273,6 +272,10 @@ data class GitHubDesktopRelease(
         get() = assets.singleOrNull { it.name == "metrolist-installer-windows-x64-$version.exe" }
     val url: String get() = "https://github.com/rahul-k-r/Metrolist/releases/tag/$tagName"
 
+    /** Releases published without a Windows build (for example Android-only ones) are not updates for desktop. */
+    val hasWindowsAsset: Boolean
+        get() = assets.any { it.state == "uploaded" && it.name.contains("windows", ignoreCase = true) }
+
     internal fun canInstall(registeredInstallation: Boolean): Boolean =
         registeredInstallation && !draft && !prerelease && ReleaseVersion.parse(version)?.prerelease?.isEmpty() == true
 }
@@ -293,6 +296,15 @@ internal fun parseGitHubSHA256(value: String?): ByteArray {
     }
     return digest.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
 }
+
+internal fun newestDesktopUpdate(
+    releasesNewestFirst: List<GitHubDesktopRelease>,
+    currentVersion: String,
+    includePrereleases: Boolean = true,
+): GitHubDesktopRelease? =
+    releasesNewestFirst.firstOrNull {
+        (includePrereleases || !it.prerelease) && it.hasWindowsAsset && isNewerDesktopVersion(it.version, currentVersion)
+    }
 
 internal fun isNewerDesktopVersion(
     candidate: String,

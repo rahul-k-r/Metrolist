@@ -133,6 +133,35 @@ class ItemMarksTest {
         assertEquals(listOf("a", "c", "d", "e"), queue.items.value.map { it.id })
     }
 
+    @Test
+    fun nextTrackIsTheNextSongThatWillPlayForPrefetchAndCrossfade() {
+        Settings.shared.skipMarkingEnabled = true
+        SkipMarks.mark(marked(MarkKind.SONG, "b"))
+        val queue = MusicQueue().apply { leavesOutSkipMarked = true }
+        queue.setQueue(listOf(song("a"), song("b"), song("c")), 0)
+        assertEquals("c", queue.peekNext()?.id)
+        assertEquals("c", queue.getNext()?.id)
+    }
+
+    @Test
+    fun incognitoBadgeNeedsTheModeOnAndAMatchByAnyCreditedArtist() {
+        IncognitoMarks.mark(marked(MarkKind.ARTIST, "artist-x"))
+        assertFalse(SongMarkBadges.incognito(song("x")))
+        Settings.shared.incognitoModeEnabled = true
+        assertTrue(SongMarkBadges.incognito(song("x")))
+        assertTrue(SongMarkBadges.incognito("other", listOf(null, "artist-x")))
+        assertFalse(SongMarkBadges.incognito("other", listOf(null, "artist-y")))
+    }
+
+    @Test
+    fun skipBadgeNeedsSkipMarkingOnAndASongMark() {
+        SkipMarks.mark(marked(MarkKind.SONG, "b"))
+        assertFalse(SongMarkBadges.skipped(song("b")))
+        Settings.shared.skipMarkingEnabled = true
+        assertTrue(SongMarkBadges.skipped(song("b")))
+        assertFalse(SongMarkBadges.skipped(song("c")))
+    }
+
     private fun registry(clock: () -> Long): MarkRegistry {
         var json = ""
         return MarkRegistry({ json }, { json = it }, markArtists = true, now = clock)

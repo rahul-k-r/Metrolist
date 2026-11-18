@@ -70,7 +70,11 @@ import com.metrolist.shared.generated.resources.lyrics_editor_delete_line
 import com.metrolist.shared.generated.resources.lyrics_editor_earlier
 import com.metrolist.shared.generated.resources.lyrics_editor_export
 import com.metrolist.shared.generated.resources.lyrics_editor_import
+import com.metrolist.shared.generated.resources.lyrics_editor_hints
+import com.metrolist.shared.generated.resources.lyrics_editor_hints_hide
+import com.metrolist.shared.generated.resources.lyrics_editor_hints_show
 import com.metrolist.shared.generated.resources.lyrics_editor_import_error
+import com.metrolist.shared.generated.resources.lyrics_editor_word_sync
 import com.metrolist.shared.generated.resources.lyrics_editor_invalid_timestamp
 import com.metrolist.shared.generated.resources.lyrics_editor_later
 import com.metrolist.shared.generated.resources.lyrics_editor_limit_error
@@ -85,7 +89,12 @@ import com.metrolist.shared.generated.resources.lyrics_editor_sync
 import com.metrolist.shared.generated.resources.lyrics_editor_title
 import com.metrolist.shared.generated.resources.lyrics_editor_undo
 import com.metrolist.shared.generated.resources.retry
+import com.metrolist.shared.generated.resources.lyrics_editor_stamp_delay
+import com.metrolist.shared.generated.resources.lyrics_editor_stamp_delay_message
+import com.metrolist.shared.generated.resources.lyrics_editor_stamp_delay_title
+import com.metrolist.shared.generated.resources.save
 import com.metrolist.shared.repository.LyricsEditorAutosave
+import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.repository.LyricsRepository
 import com.metrolist.shared.ui.components.AlertDialog
 import com.metrolist.shared.ui.components.BasicAlertDialog
@@ -118,6 +127,9 @@ fun LyricsEditorScreen(
     var ready by remember(songId) { mutableStateOf(false) }
     var busy by remember(songId) { mutableStateOf(false) }
     var more by remember { mutableStateOf(false) }
+    var showHints by remember { mutableStateOf(true) }
+    var editingDelay by remember { mutableStateOf(false) }
+    var delayText by remember { mutableStateOf("") }
     var importing by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
     var reverting by remember { mutableStateOf(false) }
@@ -215,7 +227,11 @@ fun LyricsEditorScreen(
         Scaffold(
             modifier =
                 Modifier.fillMaxSize().imePadding().onPreviewKeyEvent { event ->
-                    if (!ready || busy || event.type != KeyEventType.KeyDown || event.key != Key.Z ||
+                    if (ready && !busy && event.type == KeyEventType.KeyDown && (event.key == Key.F8 || event.key == Key.F9)) {
+                        val position = (playback.currentPositionMs() - Settings.shared.lyricsEditorStampDelayMs).coerceAtLeast(0)
+                        update { if (event.key == Key.F8) editor.timestamp(position) else editor.wordTimestamp(position) }
+                        true
+                    } else if (!ready || busy || event.type != KeyEventType.KeyDown || event.key != Key.Z ||
                         !(event.isCtrlPressed || event.isMetaPressed)
                     ) {
                         false
@@ -312,6 +328,27 @@ fun LyricsEditorScreen(
                                 more = false
                                 update { editor.timestamp(playback.currentPositionMs()) }
                             })
+                            DropdownMenuItem(text = { Text(stringResource(Res.string.lyrics_editor_word_sync)) }, onClick = {
+                                more = false
+                                update { editor.wordTimestamp(playback.currentPositionMs()) }
+                            })
+                            DropdownMenuItem(text = {
+                                Text(stringResource(Res.string.lyrics_editor_stamp_delay, Settings.shared.lyricsEditorStampDelayMs))
+                            }, onClick = {
+                                more = false
+                                delayText = Settings.shared.lyricsEditorStampDelayMs.toString()
+                                editingDelay = true
+                            })
+                            DropdownMenuItem(text = {
+                                Text(
+                                    stringResource(
+                                        if (showHints) Res.string.lyrics_editor_hints_hide else Res.string.lyrics_editor_hints_show,
+                                    ),
+                                )
+                            }, onClick = {
+                                more = false
+                                showHints = !showHints
+                            })
                             DropdownMenuItem(text = { Text(stringResource(Res.string.lyrics_editor_revert)) }, onClick = {
                                 more = false
                                 reverting =
@@ -357,6 +394,14 @@ fun LyricsEditorScreen(
                             stringResource(Res.string.lyrics_editor_limit_error),
                             color = errorColor,
                             modifier = Modifier.padding(horizontal = 16.dp),
+                        )
+                    }
+                    if (showHints) {
+                        Text(
+                            stringResource(Res.string.lyrics_editor_hints),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                         )
                     }
                     if (invalidMessage != null) Text(invalidMessage, color = errorColor, modifier = Modifier.padding(horizontal = 16.dp))
@@ -408,6 +453,30 @@ fun LyricsEditorScreen(
                 }) { Text(stringResource(Res.string.lyrics_editor_import)) }
             },
             dismissButton = { TextButton(onClick = { importing = false }) { Text(stringResource(Res.string.cancel)) } },
+        )
+    }
+    PopupVisibility(visible = editingDelay) {
+        AlertDialog(
+            onDismissRequest = { editingDelay = false },
+            title = { Text(stringResource(Res.string.lyrics_editor_stamp_delay_title)) },
+            text = {
+                Column {
+                    Text(stringResource(Res.string.lyrics_editor_stamp_delay_message))
+                    OutlinedTextField(
+                        value = delayText,
+                        onValueChange = { delayText = it.filter(Char::isDigit).take(4) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = delayText.isNotEmpty(), onClick = {
+                    Settings.shared.lyricsEditorStampDelayMs = delayText.toInt()
+                    editingDelay = false
+                }) { Text(stringResource(Res.string.save)) }
+            },
+            dismissButton = { TextButton(onClick = { editingDelay = false }) { Text(stringResource(Res.string.cancel)) } },
         )
     }
     PopupVisibility(visible = exporting) {

@@ -3,7 +3,7 @@
  * Licensed under GPL-3.0 | See git history for contributors
  */
 
-@file:OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalFoundationApi::class)
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalFoundationApi::class, FlowPreview::class)
 
 package com.metrolist.desktop.ui.components
 
@@ -31,9 +31,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -54,6 +57,8 @@ import com.metrolist.desktop.state.playback.PlayerState
 import com.metrolist.desktop.ui.DesktopDensityProvider
 import com.metrolist.desktop.ui.theme.MetrolistTheme
 import com.metrolist.desktop.window.WindowVisibility
+import com.metrolist.desktop.window.registerGlobalHotkey
+import com.metrolist.desktop.window.setWindowClickThrough
 import com.metrolist.desktop.window.setWindowHiddenFromCapture
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.close
@@ -65,14 +70,38 @@ import com.metrolist.shared.generated.resources.next
 import com.metrolist.shared.generated.resources.pause
 import com.metrolist.shared.generated.resources.play
 import com.metrolist.shared.generated.resources.previous
+import com.metrolist.shared.settings.FloatingLyricsShortcut
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.utils.OsUtil
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
 import org.jetbrains.compose.resources.stringResource
+import java.awt.GraphicsEnvironment
+import kotlin.math.roundToInt
 
 internal const val FLOATING_LYRICS_TRANSLUCENT_BACKGROUND_ALPHA = 0.2f
 internal const val FLOATING_LYRICS_TRANSLUCENT_TEXT_ALPHA = 0.75f
 private val MinWindowSize = DpSize(320.dp, 240.dp)
+
+/**
+ * One global click-through toggle shared by the always-on-top windows (lyrics floater and miniplayer). Registered only
+ * while one of them is open. If the combination is taken the toggle simply never fires, so a window can never end up
+ * unclickable with no way back.
+ */
+@Composable
+fun FloatingWindowsHotkey() {
+    if (!PlayerState.showFloatingLyrics && !PlayerState.showMiniplayer) return
+    val shortcutText = Settings.shared.floatingLyricsClickThroughShortcut
+    DisposableEffect(shortcutText) {
+        val shortcut = FloatingLyricsShortcut.parse(shortcutText) ?: FloatingLyricsShortcut.DEFAULT
+        val hotkey = registerGlobalHotkey(shortcut) { PlayerState.floatingLyricsClickThrough = !PlayerState.floatingLyricsClickThrough }
+        onDispose {
+            hotkey?.close()
+            PlayerState.floatingLyricsClickThrough = false
+        }
+    }
+}
 
 /**
  * Always-on-top, borderless lyrics window. It lives outside the main window, so it keeps working while the app sits in
@@ -82,11 +111,36 @@ private val MinWindowSize = DpSize(320.dp, 240.dp)
 fun FloatingLyricsWindow() {
     if (!PlayerState.showFloatingLyrics) return
 
+    // Only reused when it still lands on a connected screen.
+    val savedBounds =
+        remember {
+            FloatingLyricsBounds.parse(Settings.shared.floatingLyricsBounds)?.takeIf { bounds ->
+                runCatching {
+                    bounds.isReachableOn(GraphicsEnvironment.getLocalGraphicsEnvironment().screenDevices.map { it.defaultConfiguration.bounds })
+                }.getOrDefault(false)
+            }
+        }
     val windowState =
         rememberWindowState(
-            position = WindowPosition.Aligned(Alignment.BottomEnd),
-            size = DpSize(460.dp, 420.dp),
+            position = savedBounds?.let { WindowPosition.Absolute(it.x.dp, it.y.dp) } ?: WindowPosition.Aligned(Alignment.BottomEnd),
+            size = savedBounds?.let { DpSize(it.width.dp, it.height.dp) } ?: DpSize(460.dp, 420.dp),
         )
+    // Remember where the window was left; a drag or resize is saved once it settles.
+    LaunchedEffect(windowState) {
+        snapshotFlow { windowState.position to windowState.size }
+            .debounce(500)
+            .collect { (position, size) ->
+                if (position !is WindowPosition.Absolute) return@collect
+                Settings.shared.floatingLyricsBounds =
+                    FloatingLyricsBounds(
+                        position.x.value.roundToInt(),
+                        position.y.value.roundToInt(),
+                        size.width.value.roundToInt(),
+                        size.height.value.roundToInt(),
+                    ).format()
+            }
+    }
+    val clickThrough = PlayerState.floatingLyricsClickThrough
     val hideFromCapture = Settings.shared.floatingLyricsHideFromCapture
     // Per-pixel transparency is unreliable on Linux compositors (see the miniplayer), so translucency is skipped there.
     val canBeTranslucent = !OsUtil.isLinux
@@ -102,6 +156,7 @@ fun FloatingLyricsWindow() {
         alwaysOnTop = true,
     ) {
         LaunchedEffect(window, hideFromCapture) { setWindowHiddenFromCapture(window, hideFromCapture) }
+        LaunchedEffect(window, clickThrough) { setWindowClickThrough(window, clickThrough) }
         val track = PlayerState.currentTrack
         LaunchedEffect(track?.id, Settings.shared.lyricsProviderOrder, Settings.shared.lyricsEnabledProviders) {
             if (track != null) LyricsState.fetchLyrics(track)
@@ -125,34 +180,39 @@ fun FloatingLyricsWindow() {
                                 // (children consume the gesture first), so the padding around them is the grab edge.
                                 WindowDraggableArea(modifier = Modifier.weight(1f).fillMaxWidth()) {
                                     Column(modifier = Modifier.fillMaxSize()) {
-                                        FloatingLyricsHeader(
-                                            contentColor = contentColor,
-                                            hideFromCapture = hideFromCapture,
-                                            translucent = translucent,
-                                            canBeTranslucent = canBeTranslucent,
-                                        )
+                                        // While clicks pass through, the buttons could not be used, so only the lyrics stay.
+                                        if (!clickThrough) {
+                                            FloatingLyricsHeader(
+                                                contentColor = contentColor,
+                                                hideFromCapture = hideFromCapture,
+                                                translucent = translucent,
+                                                canBeTranslucent = canBeTranslucent,
+                                            )
+                                        }
                                         Box(modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)) {
                                             DesktopLyricsContent(textColor = contentColor)
                                         }
                                     }
                                 }
-                                if (!ListenTogetherState.isListenTogetherGuest()) {
-                                    FloatingLyricsControls(contentColor)
-                                } else {
+                                if (clickThrough || ListenTogetherState.isListenTogetherGuest()) {
                                     Spacer(Modifier.height(12.dp))
+                                } else {
+                                    FloatingLyricsControls(contentColor)
                                 }
                             }
-                            ResizeGrip(
-                                onResize = { dx, dy ->
-                                    windowState.size =
-                                        DpSize(
-                                            (windowState.size.width + dx).coerceAtLeast(MinWindowSize.width),
-                                            (windowState.size.height + dy).coerceAtLeast(MinWindowSize.height),
-                                        )
-                                },
-                                color = contentColor,
-                                modifier = Modifier.align(Alignment.BottomEnd),
-                            )
+                            if (!clickThrough) {
+                                ResizeGrip(
+                                    onResize = { dx, dy ->
+                                        windowState.size =
+                                            DpSize(
+                                                (windowState.size.width + dx).coerceAtLeast(MinWindowSize.width),
+                                                (windowState.size.height + dy).coerceAtLeast(MinWindowSize.height),
+                                            )
+                                    },
+                                    color = contentColor,
+                                    modifier = Modifier.align(Alignment.BottomEnd),
+                                )
+                            }
                         }
                     }
                 }
@@ -200,7 +260,7 @@ private fun FloatingLyricsHeader(
 }
 
 @Composable
-private fun HeaderIcon(
+internal fun HeaderIcon(
     icon: ImageVector,
     description: String,
     tint: Color,

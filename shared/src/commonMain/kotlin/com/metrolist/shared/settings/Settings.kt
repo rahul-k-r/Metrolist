@@ -346,6 +346,15 @@ class Settings(
     var showFloatingLyrics by preference(false)
     var floatingLyricsHideFromCapture by preference(false)
     var floatingLyricsTranslucent by preference(false)
+
+    /** Subtracted from playback position when stamping lyrics with the editor keybinds, to offset reaction time. */
+    var lyricsEditorStampDelayMs by preference(200)
+    var floatingLyricsClickThroughShortcut by preference(FloatingLyricsShortcut.DEFAULT_TEXT)
+
+    /** "x,y,width,height" in dp of the floating lyrics window as it was left; blank until it is moved or resized. */
+    var floatingLyricsBounds by preference("")
+    var miniplayerHideFromCapture by preference(false)
+    var miniplayerTranslucent by preference(false)
     var miniPlayerBackgroundStyle by preference("DEFAULT")
     var playerThumbnailStyle by preference(PlayerThumbnailStyle.COMPACT)
     var castEnabled by preference(CastEnabledKey, true)
@@ -538,6 +547,9 @@ class Settings(
     var lyricsDeepLApiKey by preference("")
     var lyricsDeepLFormality by preference("default")
     var lyricsRomanizationEnabled by preference(false)
+
+    /** Sweeps words across lines that only have line-level timing, using estimated word positions. */
+    var lyricsEstimatedWordSweep by preference(false)
     var lyricsRomanizeAsMain by preference(false)
     var lyricsSyllableRomanizationEnabled by preference(true)
     var lyricsRomanizeCyrillicByLine by preference(false)
@@ -563,6 +575,9 @@ class Settings(
     /** Song ids inside marked albums/playlists, per device (each device loads them itself). */
     var collectionMarkMembersJson by preference("")
     var providerLyricsOffsetsJson by preference("")
+
+    /** Per-song last-change times for user-made lyrics, offsets and provider choice; drives Device Connect lyrics sync. */
+    var lyricsSyncStampsJson by preference("")
     var songTempoPitchJson by preference("")
 
     val isIncognito: Boolean get() = IncognitoPolicy.isIncognito(incognitoModeEnabled, incognitoActive)
@@ -1412,11 +1427,16 @@ class Settings(
                     "showFloatingLyrics",
                     "floatingLyricsHideFromCapture",
                     "floatingLyricsTranslucent",
+                    "floatingLyricsClickThroughShortcut",
+                    "floatingLyricsBounds",
+                    "miniplayerHideFromCapture",
+                    "miniplayerTranslucent",
                     "desktopTrayToggleOnClick",
                     "desktopTrayClickPlayPause",
                     "desktopTrayPlaylistMode",
                     "incognitoMarksJson",
                     "skipMarksJson",
+                    "lyricsSyncStampsJson",
                     "collectionMarkMembersJson",
                     // Endpoints: a synced URL could redirect locally stored API keys/tokens to another host.
                     "lyricsAiBaseUrl",

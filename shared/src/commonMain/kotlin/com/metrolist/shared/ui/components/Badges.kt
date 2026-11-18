@@ -41,6 +41,7 @@ import com.metrolist.shared.model.AlbumItem
 import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.model.YTItem
 import com.metrolist.shared.model.isLive
+import com.metrolist.shared.settings.SongMarkBadges
 import com.metrolist.shared.state.SongLikeState
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.icons.SongStatusIcons
@@ -167,8 +168,10 @@ fun SongStatusBadges(
     showExplicit: Boolean = true,
 ) {
     val isLiked = SongLikeState.isLiked(song.id)
+    val isIncognito = SongMarkBadges.incognito(song)
+    val isSkipped = SongMarkBadges.skipped(song)
     if (!isLiked && song.libraryRemoveToken == null && !isDownloaded && !(showExplicit && song.isExplicit) && !song.isNew &&
-        !song.isLive
+        !song.isLive && !isIncognito && !isSkipped
     ) {
         return
     }
@@ -188,6 +191,8 @@ fun SongStatusBadges(
                 modifier = Modifier.offset(y = 1.dp).size(13.dp),
             )
         }
+        if (isIncognito) IncognitoMarkIcon()
+        if (isSkipped) SkipMarkIcon()
         if (song.libraryRemoveToken != null) {
             Icon(
                 imageVector = SongStatusIcons.Saved,

@@ -142,15 +142,21 @@ open class MarkRegistry(
      * A song matches by its own id, by any credited artist where this registry marks artists, and by membership of a
      * marked album or playlist (as last loaded on this device).
      */
-    fun matches(song: SongItem): Boolean {
+    fun matches(song: SongItem): Boolean = matches(song.id, song.artists.map { it.id })
+
+    /** Same as [matches] for callers that only carry ids, such as queue rows. */
+    fun matches(
+        songId: String,
+        artistIds: Collection<String?>,
+    ): Boolean {
         val parsed = parsed()
-        if (song.id in parsed.songIds) return true
-        if (markArtists && song.artists.any { artist -> artist.id?.let { it in parsed.artistIds } == true }) return true
+        if (songId in parsed.songIds) return true
+        if (markArtists && artistIds.any { it != null && it in parsed.artistIds }) return true
         val store = members ?: return false
         if (parsed.albumIds.isEmpty() && parsed.playlistIds.isEmpty()) return false
         val keys =
             parsed.albumIds.map { store.key(MarkKind.ALBUM, it) } + parsed.playlistIds.map { store.key(MarkKind.PLAYLIST, it) }
-        return store.contains(keys, song.id)
+        return store.contains(keys, songId)
     }
 
     /** Song ids inside this registry's marked albums and playlists, as last loaded. */
@@ -231,6 +237,22 @@ object SkipMarks : MarkRegistry(
         val newStart = if (startIndex < 0) startIndex else songs.take(startIndex).count { !matches(it) }
         return Filtered(kept, newStart)
     }
+}
+
+/**
+ * What a row should show for a song's marks. Reads the settings state, so a composable calling it redraws when marks
+ * or the feature switches change. A skip mark is never shown for a queued song: queues leave marked songs out, so
+ * anything still in one was added by hand and will play.
+ */
+object SongMarkBadges {
+    fun incognito(
+        songId: String,
+        artistIds: Collection<String?>,
+    ): Boolean = Settings.shared.incognitoModeEnabled && IncognitoMarks.matches(songId, artistIds)
+
+    fun incognito(song: SongItem): Boolean = incognito(song.id, song.artists.map { it.id })
+
+    fun skipped(song: SongItem): Boolean = Settings.shared.skipMarkingEnabled && SkipMarks.matches(song)
 }
 
 /** The song playing right now, so sinks that only know "is history paused" can honour per-song marks. */

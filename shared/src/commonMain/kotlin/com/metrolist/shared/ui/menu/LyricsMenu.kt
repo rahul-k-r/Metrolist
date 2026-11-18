@@ -39,6 +39,8 @@ import com.metrolist.shared.generated.resources.copy
 import com.metrolist.shared.generated.resources.edit
 import com.metrolist.shared.generated.resources.edit_lyrics
 import com.metrolist.shared.generated.resources.lyrics_offset
+import com.metrolist.shared.generated.resources.lyrics_estimated_sweep_description
+import com.metrolist.shared.generated.resources.lyrics_estimated_sweep_title
 import com.metrolist.shared.generated.resources.lyrics_romanize_title
 import com.metrolist.shared.generated.resources.lyrics_show_translations
 import com.metrolist.shared.generated.resources.no_provider_results_found
@@ -263,6 +265,29 @@ fun LyricsMenu(
                                 )
                             },
                         ),
+                        if (lyricsUiState.lyrics.any { it.time > 0L } && lyricsUiState.lyrics.none { it.words.orEmpty().any { w -> !w.isLineTimed } }) {
+                            Material3MenuItemData(
+                                title = { Text(stringResource(Res.string.lyrics_estimated_sweep_title)) },
+                                description = { Text(stringResource(Res.string.lyrics_estimated_sweep_description)) },
+                                icon = {
+                                    Icon(
+                                        imageVector = MetrolistIcons.Outlined.FastForward,
+                                        contentDescription = null,
+                                    )
+                                },
+                                onClick = {
+                                    Settings.shared.lyricsEstimatedWordSweep = !Settings.shared.lyricsEstimatedWordSweep
+                                },
+                                trailingContent = {
+                                    ExpressiveSwitch(
+                                        checked = Settings.shared.lyricsEstimatedWordSweep,
+                                        onCheckedChange = { Settings.shared.lyricsEstimatedWordSweep = it },
+                                    )
+                                },
+                            )
+                        } else {
+                            null
+                        },
                         if (lyricsUiState.lyrics.any { it.time > 0L }) {
                             Material3MenuItemData(
                                 title = { Text(stringResource(Res.string.lyrics_offset)) },

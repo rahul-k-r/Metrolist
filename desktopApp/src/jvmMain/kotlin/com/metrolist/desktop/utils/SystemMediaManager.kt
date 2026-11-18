@@ -6,6 +6,7 @@
 package com.metrolist.desktop.utils
 
 import androidx.compose.runtime.snapshotFlow
+import com.metrolist.desktop.deviceconnect.DesktopDeviceConnect
 import com.metrolist.desktop.state.playback.PlayerState
 import com.metrolist.innertubex.utils.YouTubeUrlParser
 import com.metrolist.shared.generated.resources.Res
@@ -29,6 +30,21 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.getString
+
+/**
+ * While this device only mirrors another one it makes no sound. Reporting "playing" makes Windows (and a multipoint
+ * headset behind it) treat it as an active source and send it a pause, which is then forwarded to the real player.
+ */
+internal fun systemMediaStatus(
+    hasTrack: Boolean,
+    isPlaying: Boolean,
+    followingRemote: Boolean,
+): MediaPlaybackStatus =
+    when {
+        !hasTrack -> MediaPlaybackStatus.STOPPED
+        isPlaying && !followingRemote -> MediaPlaybackStatus.PLAYING
+        else -> MediaPlaybackStatus.PAUSED
+    }
 
 object SystemMediaManager {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -65,11 +81,11 @@ object SystemMediaManager {
                     fun state(position: Long): MediaPlaybackState =
                         MediaPlaybackState(
                             status =
-                                when {
-                                    PlayerState.currentTrack == null -> MediaPlaybackStatus.STOPPED
-                                    PlayerState.isPlaying -> MediaPlaybackStatus.PLAYING
-                                    else -> MediaPlaybackStatus.PAUSED
-                                },
+                                systemMediaStatus(
+                                    hasTrack = PlayerState.currentTrack != null,
+                                    isPlaying = PlayerState.isPlaying,
+                                    followingRemote = PlayerState.isFollowingRemoteDevice,
+                                ),
                             positionMs = position,
                         )
                     val changes =
@@ -77,7 +93,8 @@ object SystemMediaManager {
                             snapshotFlow { Triple(PlayerState.currentTrack, PlayerState.isPlaying, PlayerState.isPlaybackLoading) },
                             PlayerState.player.playbackSpeed,
                             PlayerState.player.playbackStateChanges,
-                        ) { _, _, _ ->
+                            DesktopDeviceConnect.manager.remote.state,
+                        ) { _, _, _, _ ->
                             state(PlayerState.currentMediaPositionMs())
                         }
                     systemMediaPlaybackUpdates(

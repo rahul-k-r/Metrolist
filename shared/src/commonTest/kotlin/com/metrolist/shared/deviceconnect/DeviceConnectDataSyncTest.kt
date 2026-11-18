@@ -1,5 +1,10 @@
 package com.metrolist.shared.deviceconnect
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.Snapshot
+import com.metrolist.shared.settings.LyricsSyncItem
 import com.metrolist.shared.settings.MarkKind
 import com.metrolist.shared.settings.MarkRegistry
 import com.metrolist.shared.settings.MarkedItem
@@ -22,6 +27,28 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DeviceConnectDataSyncTest {
+    private class FakeLyrics : LyricsSyncBridge {
+        val items = mutableMapOf<String, LyricsSyncItem>()
+        // Compose state, like the real settings property, so snapshotFlow sees changes.
+        var version by mutableStateOf("")
+
+        fun edit(item: LyricsSyncItem) {
+            items[item.songId] = item
+            version += "x"
+            Snapshot.sendApplyNotifications()
+        }
+
+        override fun stamps() = items.mapValues { it.value.updatedAt }
+
+        override suspend fun export(ids: Collection<String>) = ids.mapNotNull(items::get)
+
+        override suspend fun apply(items: List<LyricsSyncItem>): Int {
+            val newer = items.filter { it.updatedAt > (this.items[it.songId]?.updatedAt ?: 0L) }
+            newer.forEach { edit(it) }
+            return newer.size
+        }
+    }
+
     private class Device(
         scope: TestScope,
         var clock: Long = 1_000L,
@@ -36,6 +63,7 @@ class DeviceConnectDataSyncTest {
         val messages = MutableSharedFlow<Pair<String, ByteArray>>(extraBufferCapacity = 16)
         val incognito = MarkRegistry({ incognitoJson }, { incognitoJson = it }, markArtists = true, now = { clock })
         val skip = MarkRegistry({ skipJson }, { skipJson = it }, markArtists = false, now = { clock })
+        val lyrics = FakeLyrics()
         val sync =
             DeviceConnectDataSync(
                 scope = scope.backgroundScope,
@@ -50,6 +78,8 @@ class DeviceConnectDataSyncTest {
                 importSettings = { snapshot -> snapshot.entries.forEach { settings[it.key] = it.value } },
                 settingsDifferences = { snapshot -> snapshot.entries.count { settings[it.key] != it.value } },
                 marksVersion = { incognitoJson to skipJson },
+                lyrics = { lyrics },
+                lyricsVersion = { lyrics.version },
             ).also { it.start(peerIds, messages) }
 
         suspend fun deliver(
@@ -101,6 +131,60 @@ class DeviceConnectDataSyncTest {
             laptop.incognito.unmark(MarkKind.SONG, "a")
             phone.deliver("laptop", DcDataMessage(DcDataKinds.MARKS, incognito = laptop.incognito.entries()))
             assertFalse(phone.incognito.isMarked(MarkKind.SONG, "a"))
+        }
+
+    @Test
+    fun existingLyricsGoToANewPeerAndLaterEditsOnlySendTheChangedSong() =
+        runTest {
+            val phone = Device(this)
+            val laptop = Device(this)
+            phone.lyrics.items["a"] = LyricsSyncItem("a", updatedAt = 10, userLyrics = "[00:01.00] hi")
+            phone.lyrics.items["b"] = LyricsSyncItem("b", updatedAt = 20, offsetMs = 300)
+            phone.peerIds.value = setOf("laptop")
+            runCurrent()
+            val connect = phone.sent.single { it.second.kind == DcDataKinds.LYRICS }.second
+            assertEquals(listOf("a", "b"), connect.lyrics.map { it.songId })
+            laptop.peerIds.value = setOf("phone")
+            runCurrent()
+            laptop.deliver("phone", connect)
+            assertEquals("[00:01.00] hi", laptop.lyrics.items["a"]?.userLyrics)
+            assertEquals(300, laptop.lyrics.items["b"]?.offsetMs)
+
+            phone.sent.clear()
+            phone.lyrics.edit(LyricsSyncItem("b", updatedAt = 30, offsetMs = 450))
+            runCurrent()
+            assertEquals(listOf("b"), phone.sent.single { it.second.kind == DcDataKinds.LYRICS }.second.lyrics.map { it.songId })
+        }
+
+    @Test
+    fun staleRemoteLyricsDoNotOverwriteANewerLocalEdit() =
+        runTest {
+            val laptop = Device(this)
+            laptop.peerIds.value = setOf("phone")
+            runCurrent()
+            laptop.lyrics.edit(LyricsSyncItem("a", updatedAt = 50, userLyrics = "mine"))
+            laptop.deliver("phone", DcDataMessage(DcDataKinds.LYRICS, lyrics = listOf(LyricsSyncItem("a", updatedAt = 40, userLyrics = "old"))))
+            assertEquals("mine", laptop.lyrics.items["a"]?.userLyrics)
+        }
+
+    @Test
+    fun lyricsAppliedFromAPeerAreNotEchoedBack() =
+        runTest {
+            val laptop = Device(this)
+            laptop.peerIds.value = setOf("phone")
+            runCurrent()
+            laptop.deliver("phone", DcDataMessage(DcDataKinds.LYRICS, lyrics = listOf(LyricsSyncItem("a", updatedAt = 40, userLyrics = "x"))))
+            runCurrent()
+            assertEquals("x", laptop.lyrics.items["a"]?.userLyrics)
+            assertTrue(laptop.sent.none { it.second.kind == DcDataKinds.LYRICS })
+        }
+
+    @Test
+    fun lyricsFromADeviceThatIsNotConnectedAreIgnored() =
+        runTest {
+            val laptop = Device(this)
+            laptop.deliver("stranger", DcDataMessage(DcDataKinds.LYRICS, lyrics = listOf(LyricsSyncItem("a", updatedAt = 40, userLyrics = "x"))))
+            assertTrue(laptop.lyrics.items.isEmpty())
         }
 
     @Test

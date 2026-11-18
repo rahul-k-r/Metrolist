@@ -29,6 +29,39 @@
 >
 > YouTube Music is region-restricted. If the service is unavailable in your region, you need a [VPN or proxy in a supported region](https://one.one.one.one/) to use the app. [Changing your DNS](https://developers.cloudflare.com/1.1.1.1/setup/) can bypass some blocks.
 
+<div align="center">
+<h1><a id="this-fork"></a>About this fork</h1>
+</div>
+
+This is a personal fork of [Metrolist](https://github.com/MetrolistGroup/Metrolist), kept on the `custom` branch. It tracks upstream stable releases and adds the features below. Builds come from the [fork's releases](https://github.com/rahul-k-r/Metrolist/releases) and are versioned `<upstream>+<fork>`, for example `14.0.0+0.1.5`. The Android build uses its own package id (`com.rahulkr.metrolist`), so it installs next to the upstream app, and its updater reads the fork's releases.
+
+### What the fork adds
+
+**Privacy and queue control**
+- Incognito marks: mark songs, artists, albums or playlists so they play without being recorded. Marked items stay out of listen history and statistics, including plays recorded before the mark. Everything marked is listed in Settings, under Privacy.
+- Skip marks: mark songs, albums or playlists to keep them out of automatic queues. A skip-marked song you add by hand still plays normally, and playing a skip-marked playlist itself still plays it. Crossfade and prefetch follow the queue, so they look at the next song that will actually play.
+- A mark shows as a badge, like the liked-song heart. Incognito shows in the queue, in every song and collection list, and next to the artist in the player. Skip shows in collections only.
+- Mark actions are in the song, album, artist and playlist menus on every platform.
+
+**Lyrics**
+- Floating lyrics window (desktop): always on top, with playback controls, a translucent mode, optional hiding from screen capture, and it remembers where you left it.
+- Click-through: a global shortcut (Ctrl+Shift+L by default) makes the floating window ignore the mouse, and the same shortcut makes it clickable again. Change the shortcut in Settings, under Lyrics. Windows is the tested platform. The macOS (Carbon hotkey) and Linux (X11/XWayland) versions are implemented and unit-tested but have not been run on real machines. Native Wayland has no way to do either, so the setting does nothing there.
+- Lyrics editor: timed lines, word-by-word timings (`<mm:ss.xx>`), background vocals (`[bg:…]`) and singers (`{v1}`, `{v2}`, `{v1000}` for a group, `{v2000}` for other). Hints are built into the editor. F8 stamps the line and F9 stamps a word at the current playback position, minus a reaction-time delay you can set from the editor menu.
+- Estimated word sweep: an option in the lyrics menu that sweeps the highlight word by word on lyrics that only have line timing.
+- Lyrics sync between devices: lyrics you wrote or edited, per-song offsets and provider picks follow you across Device Connect devices. Lyrics fetched from providers are not synced.
+
+**Devices**
+- Marks sync automatically between connected devices, and settings can be pushed to or pulled from a device on request.
+- Tray (desktop): connected-devices menu to move playback between this device and your others, recent and playlist lists, and a play-mode choice (play, play next, add to queue). The app can start minimized to the tray.
+- Android notification: a "Play on <device>" button that moves playback, Wear OS controls for shuffle, repeat and the device button, and a playing-on pill in the player.
+- Desktop sidebar playlists with artwork and a full context menu.
+
+### Differences from upstream
+- Crash reporting (Sentry) is removed, and there is no crash-report onboarding page.
+- Last.fm scrobbling and the Lyprio lyrics provider need your own keys, because the fork ships placeholders. Without them, those two do not work.
+- iOS is not built by the fork's releases.
+- Marks that include albums or playlists are not understood by an older version of the app. Update every device before syncing them.
+
 <!---
 
 DO NOT REMOVE THIS SECTION, I WANT TO ADD IT LATER!!!
@@ -76,6 +109,8 @@ DO NOT REMOVE THIS SECTION, I WANT TO ADD IT LATER!!!
 <div align="center">
 
 <h1><a id="download-now"></a>Download now</h1>
+
+<p><b>This fork's builds are on its <a href="https://github.com/rahul-k-r/Metrolist/releases">own releases page</a>.</b> The packages and badges below are upstream Metrolist's.</p>
 
 <p>Install Metrolist: <a href="docs/install/android.md">Android</a>, <a href="docs/install/ios.md">iOS</a>, <a href="docs/install/windows.md">Windows</a>, <a href="docs/install/macos.md">macOS</a> or <a href="docs/install/linux.md">Linux</a>. Check <a href="docs/install/README.md#get-the-package">download availability</a> before choosing a package.</p>
 

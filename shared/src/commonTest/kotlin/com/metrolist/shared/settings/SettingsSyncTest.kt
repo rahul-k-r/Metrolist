@@ -41,12 +41,21 @@ class SettingsSyncTest {
         settings.showFloatingLyrics = true
         settings.floatingLyricsHideFromCapture = true
         settings.floatingLyricsTranslucent = true
+        settings.floatingLyricsClickThroughShortcut = "Ctrl+Alt+K"
+        settings.floatingLyricsBounds = "10,20,460,420"
+        settings.miniplayerHideFromCapture = true
+        settings.miniplayerTranslucent = true
 
         val keys = settings.exportSyncSettings().entries.map { it.key }.toSet()
+
+        assertFalse("floatingLyricsClickThroughShortcut" in keys)
+        assertFalse("floatingLyricsBounds" in keys)
 
         assertFalse("showFloatingLyrics" in keys)
         assertFalse("floatingLyricsHideFromCapture" in keys)
         assertFalse("floatingLyricsTranslucent" in keys)
+        assertFalse("miniplayerHideFromCapture" in keys)
+        assertFalse("miniplayerTranslucent" in keys)
     }
 
     @Test

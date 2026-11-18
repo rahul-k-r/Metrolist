@@ -86,6 +86,7 @@ scripts/.fonts/
 __pycache__/
 /linter/
 HANDOFF.md
+ignore/
 
 # AI tooling
 .cortexkit

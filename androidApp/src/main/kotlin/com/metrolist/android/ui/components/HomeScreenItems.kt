@@ -70,6 +70,7 @@ import com.metrolist.shared.model.thumbnailAspectRatio
 import com.metrolist.shared.model.toSongItem
 import com.metrolist.shared.settings.ArtistNameAliases
 import com.metrolist.shared.settings.Settings
+import com.metrolist.shared.settings.SongMarkBadges
 import com.metrolist.shared.settings.displayName
 import com.metrolist.shared.settings.displayTitle
 import com.metrolist.shared.state.SongLikeState
@@ -77,7 +78,9 @@ import com.metrolist.shared.ui.components.AlbumPlayButton
 import com.metrolist.shared.ui.components.AutoPlaylistThumbnail
 import com.metrolist.shared.ui.components.CollectionPreviews
 import com.metrolist.shared.ui.components.EpisodePlayedIndicator
+import com.metrolist.shared.ui.components.IncognitoMarkIcon
 import com.metrolist.shared.ui.components.PlaylistCoverImage
+import com.metrolist.shared.ui.components.SkipMarkIcon
 import com.metrolist.shared.ui.components.SongThumbnailPlayOverlay
 import com.metrolist.shared.ui.components.focusedItemBorder
 import com.metrolist.shared.ui.components.images.AsyncImage
@@ -225,12 +228,16 @@ private fun SongStatusBadges(
     isDownloaded: Boolean = false,
 ) {
     val isLiked = SongLikeState.isLiked(song.id)
-    if (!isLiked && song.libraryRemoveToken == null && !isDownloaded && !song.isExplicit) return
+    val isIncognito = SongMarkBadges.incognito(song)
+    val isSkipped = SongMarkBadges.skipped(song)
+    if (!isLiked && song.libraryRemoveToken == null && !isDownloaded && !song.isExplicit && !isIncognito && !isSkipped) return
 
     Row(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (isIncognito) IncognitoMarkIcon(size = 11.dp)
+        if (isSkipped) SkipMarkIcon(size = 10.dp)
         if (isLiked) {
             Icon(
                 imageVector = SongStatusIcons.Liked,

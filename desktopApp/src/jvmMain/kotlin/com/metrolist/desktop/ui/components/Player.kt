@@ -131,8 +131,10 @@ import com.metrolist.shared.playback.SleepTimerState
 import com.metrolist.shared.settings.PlayerType
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.settings.SliderStyle
+import com.metrolist.shared.settings.SongMarkBadges
 import com.metrolist.shared.settings.displayName
 import com.metrolist.shared.ui.components.AlertDialog
+import com.metrolist.shared.ui.components.IncognitoMarkIcon
 import com.metrolist.shared.ui.components.LiveBadge
 import com.metrolist.shared.ui.components.PlayerConnectedButtonGroup
 import com.metrolist.shared.ui.components.PlayerLikeShareButtons
@@ -708,6 +710,10 @@ fun StandardBottomPlayer(
                                     Spacer(Modifier.width(4.dp))
                                     ExplicitBadge()
                                 }
+                                PlayerState.currentTrack?.takeIf(SongMarkBadges::incognito)?.let {
+                                    Spacer(Modifier.width(4.dp))
+                                    IncognitoMarkIcon()
+                                }
                             }
                         }
                     }
@@ -948,6 +954,10 @@ fun StandardBottomPlayer(
                                     if (PlayerState.currentTrack?.isExplicit == true) {
                                         Spacer(Modifier.width(4.dp))
                                         ExplicitBadge()
+                                    }
+                                    PlayerState.currentTrack?.takeIf(SongMarkBadges::incognito)?.let {
+                                        Spacer(Modifier.width(4.dp))
+                                        IncognitoMarkIcon()
                                     }
                                 }
                             }

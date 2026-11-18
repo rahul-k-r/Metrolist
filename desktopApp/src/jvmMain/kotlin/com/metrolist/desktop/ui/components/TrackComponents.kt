@@ -97,11 +97,14 @@ import com.metrolist.shared.model.YTItem
 import com.metrolist.shared.model.previewAspectRatio
 import com.metrolist.shared.model.previewThumbnailUrl
 import com.metrolist.shared.settings.ArtistNameAliases
+import com.metrolist.shared.settings.SongMarkBadges
 import com.metrolist.shared.settings.displayName
 import com.metrolist.shared.settings.displayTitle
 import com.metrolist.shared.state.SongMetadataState
 import com.metrolist.shared.ui.components.CollectionPreviews
+import com.metrolist.shared.ui.components.IncognitoMarkIcon
 import com.metrolist.shared.ui.components.ListItemTitle
+import com.metrolist.shared.ui.components.SkipMarkIcon
 import com.metrolist.shared.ui.components.animateCurrentSongColors
 import com.metrolist.shared.ui.components.animatedCurrentSongArtworkShape
 import com.metrolist.shared.ui.components.currentSongSemantics
@@ -147,6 +150,8 @@ fun SongMetadataRow(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (SongMarkBadges.incognito(song)) IncognitoMarkIcon(size = 11.dp, tint = contentColor)
+        if (SongMarkBadges.skipped(song)) SkipMarkIcon(size = 10.dp, tint = contentColor)
         if (PlayerState.isLiked(song.id)) {
             Icon(
                 imageVector = SongStatusIcons.Liked,

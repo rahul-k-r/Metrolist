@@ -12,8 +12,12 @@
 package com.metrolist.shared.deviceconnect
 
 import androidx.compose.runtime.snapshotFlow
+import com.metrolist.shared.repository.LyricsRepository
+import com.metrolist.shared.settings.LyricsSyncItem
+import com.metrolist.shared.settings.LyricsSyncStamps
 import com.metrolist.shared.settings.MarkRegistry
 import com.metrolist.shared.settings.Settings
+import org.koin.mp.KoinPlatform
 import com.metrolist.shared.utils.Logger
 import com.metrolist.shared.youtube.playback.PlaybackEventKind
 import com.metrolist.shared.youtube.playback.PlaybackEventLog
@@ -268,7 +272,18 @@ class DeviceConnectManager
             return session.sendData(bytes)
         }
 
-        /** Marks always sync between connected devices; settings only move when the user pushes or pulls. */
+        private fun lyricsRepository(): LyricsRepository? = runCatching { KoinPlatform.getKoin().get<LyricsRepository>() }.getOrNull()
+
+        private fun lyricsBridge(): LyricsSyncBridge =
+            object : LyricsSyncBridge {
+                override fun stamps() = LyricsSyncStamps({ settings.lyricsSyncStampsJson }, { settings.lyricsSyncStampsJson = it }).all()
+
+                override suspend fun export(ids: Collection<String>) = lyricsRepository()?.exportSyncItems(ids).orEmpty()
+
+                override suspend fun apply(items: List<LyricsSyncItem>) = lyricsRepository()?.applySyncItems(items) ?: 0
+            }
+
+        /** Marks and user-made lyrics always sync between connected devices; settings only move when the user pushes or pulls. */
         val dataSync =
             DeviceConnectDataSync(
                 scope = scope,
@@ -280,6 +295,8 @@ class DeviceConnectManager
                 settingsDifferences = settings::syncDifferenceCount,
                 marksVersion = { settings.incognitoMarksJson to settings.skipMarksJson },
                 allowSettingsRequest = { !settings.incognitoModeEnabled },
+                lyrics = { lyricsBridge() },
+                lyricsVersion = { settings.lyricsSyncStampsJson },
             ).also { it.start(_dataPeerIds, _dataMessages) }
 
         suspend fun enable(context: Any?) {

@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.metrolist.desktop.state.playback.ListenTogetherState
 import com.metrolist.desktop.state.playback.PlayerState
 import com.metrolist.desktop.state.playback.SuggestedSongKeys
+import com.metrolist.desktop.state.playback.canRemoveQueueEntry
 import com.metrolist.desktop.storage.DownloadManager
 import com.metrolist.desktop.storage.DownloadState
 import com.metrolist.shared.generated.resources.Res
@@ -111,7 +112,7 @@ internal fun DesktopQueueContent(
         isSaved = false,
         isDownloaded = downloadStates[id] == DownloadState.DOWNLOADED,
         isSuggested = isSuggested,
-        canRemove = !isSuggested && queueIndex > queueState.currentIndex && !isQueueLocked,
+        canRemove = !isSuggested && canRemoveQueueEntry(queueIndex, queueState.currentIndex, isListenTogetherGuest),
         queueIndex = queueIndex,
         entryKey = entryKey,
         uniqueKey = if (isSuggested) "rec_$entryKey" else entryKey.toString(),
@@ -242,14 +243,13 @@ internal fun DesktopQueueContent(
                         }
 
                         QueueEvent.DeleteSelected -> {
-                            if (!isQueueLocked) {
-                                val indices =
-                                    queueState.entries
-                                        .withIndex()
-                                        .filter { (index, entry) -> entry.key in selectedEntryKeys && index > queueState.currentIndex }
-                                        .mapTo(mutableSetOf()) { it.index }
-                                PlayerState.removeQueueItems(indices)?.let { pendingRemoval = it }
-                            }
+                            val indices =
+                                queueState.entries
+                                    .withIndex()
+                                    .filter { (index, entry) ->
+                                        entry.key in selectedEntryKeys && canRemoveQueueEntry(index, queueState.currentIndex, isListenTogetherGuest)
+                                    }.mapTo(mutableSetOf()) { it.index }
+                            PlayerState.removeQueueItems(indices)?.let { pendingRemoval = it }
                             selectedEntryKeys = emptySet()
                         }
 

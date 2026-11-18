@@ -1998,6 +1998,41 @@ class MediaSessionPlayerTest {
     }
 
     @Test
+    fun followingAnotherDeviceReportsNotPlayingToTheSystemWhileTheAppStateKeepsRunning() {
+        val backend = RecordingPlaybackPlayer(listOf(song("a")))
+        val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
+        val following = MutableStateFlow(false)
+        try {
+            val adapter =
+                MediaSessionPlayer(
+                    backend.player,
+                    MutableStateFlow(Player.REPEAT_MODE_OFF),
+                    isPlaybackLockedProvider = { false },
+                    isPlaybackLockedFlow = MutableStateFlow(false),
+                    isDeviceConnectFollowing = { following.value },
+                    deviceConnectFollowingChanges = following,
+                    scope = scope,
+                )
+            backend.isPlaying.value = true
+            backend.wantsPlayback = true
+            assertTrue(adapter.isPlaying)
+            assertTrue(adapter.playWhenReady)
+
+            following.value = true
+            assertFalse(adapter.isPlaying)
+            assertFalse(adapter.playWhenReady)
+            // What the app itself shows is read from the music player and stays "playing".
+            assertTrue(backend.isPlaying.value)
+
+            following.value = false
+            assertTrue(adapter.isPlaying)
+            assertTrue(adapter.playWhenReady)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
     fun queueAdditionsRecheckBlockedSongs() {
         val tracks = listOf(song("a"), song("blocked"), song("allowed"))
         val backend = RecordingPlaybackPlayer(tracks.take(1))

@@ -2971,6 +2971,8 @@
     <!-- Translators: Option to show translations included with lyrics. -->
     <string name="lyrics_show_translations">Translations</string>
     <!-- Translators: Heading for romanize in the lyrics. -->
+    <string name="lyrics_estimated_sweep_title">Estimated word sweep</string>
+    <string name="lyrics_estimated_sweep_description">Sweeps words across lines that only have line timing</string>
     <string name="lyrics_romanize_title">Romanization</string>
     <!-- Translators: Option or section label for offline content in the settings. -->
     <!-- Translators: Label for feature name in the lyrics romanization. -->
@@ -4820,6 +4822,10 @@
     <string name="tray_show_floating_lyrics">Show floating lyrics</string>
     <string name="floating_lyrics_hide_from_capture">Hide from screen recording</string>
     <string name="floating_lyrics_translucent">Translucent mode</string>
+    <string name="floating_lyrics_shortcut_title">Click-through shortcut</string>
+    <string name="floating_lyrics_shortcut_description">Works from any app. Press it once to let clicks pass through the floating lyrics, and again to make them clickable. On Linux this needs X11 (or XWayland), not native Wayland.</string>
+    <string name="floating_lyrics_shortcut_press">Press the new shortcut…</string>
+    <string name="floating_lyrics_shortcut_invalid">Use Ctrl, Alt or Windows with a letter, number or F-key.</string>
     <string name="lyrics_show_floating">Show floating lyrics</string>
     <!-- Translators: Label for active in the connected-player controls. -->
     <string name="active">Active</string>
@@ -5416,6 +5422,13 @@
     <string name="lyrics_editor_shift_all_earlier">Shift all lines -0.5s</string>
     <string name="lyrics_editor_shift_all_later">Shift all lines +0.5s</string>
     <string name="lyrics_editor_sync">Insert timestamp at current playback position</string>
+    <string name="lyrics_editor_word_sync">Insert word timestamp at cursor</string>
+    <string name="lyrics_editor_hints_show">Show formatting hints</string>
+    <string name="lyrics_editor_hints_hide">Hide formatting hints</string>
+    <string name="lyrics_editor_stamp_delay">Keybind timing delay: %1$d ms</string>
+    <string name="lyrics_editor_stamp_delay_title">Keybind timing delay</string>
+    <string name="lyrics_editor_stamp_delay_message">Milliseconds subtracted from the playback position when stamping with F8 / F9, to make up for reaction time.</string>
+    <string name="lyrics_editor_hints">Line: [mm:ss.xx] text\nWords: [00:12.00] &lt;00:12.00&gt;Hello &lt;00:12.50&gt;world\nBackground vocals: end the line with [bg:text] or [bg:&lt;00:12.20&gt;ooh &lt;00:12.60&gt;yeah]\nSinger: put {v1} or {v2} right after the timestamp ({v1000} group, {v2000} other), e.g. [00:12.00] {v2} text\nKeybinds: F8 stamps the line, F9 inserts a word marker at the cursor, both at the current playback position minus the keybind delay (More menu). Use \\&lt; \\{ \\[bg: for literal characters.</string>
     <string name="lyrics_editor_revert">Revert to provider lyrics</string>
     <string name="lyrics_editor_revert_message">Delete your lyrics and draft for this song? The provider lyrics will return.</string>
     <string name="lyrics_editor_export">Export/Copy as MLX JSON</string>
@@ -5560,6 +5573,7 @@
     <!-- Translators: Accessibility label for the small badge on the profile button while incognito mode is active. -->
     <string name="incognito_badge_description">Incognito mode is on</string>
     <!-- Translators: Song menu item that makes every play of this song incognito. -->
+    <string name="incognito_marked_badge">Plays incognito</string>
     <string name="incognito_mark_song">Always play incognito</string>
     <!-- Translators: Song menu item that removes the always-incognito mark from this song. -->
     <string name="incognito_unmark_song">Stop playing incognito</string>

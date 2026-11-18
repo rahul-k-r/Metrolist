@@ -51,6 +51,7 @@ import com.metrolist.shared.youtube.playback.PlaybackNetworkStateStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -343,6 +344,8 @@ class MediaSessionPlayer(
     private val automotivePlaybackRequestGate: AutomotivePlaybackRequestGate? = null,
     private val isAutomotiveSongBlocked: (SongItem) -> Boolean = { it.isUnavailable || BlockedContent.isBlocked(it) },
     private val isDeviceConnectFollowing: () -> Boolean = { false },
+    // Emits whenever [isDeviceConnectFollowing] may have changed, so the published state is refreshed.
+    private val deviceConnectFollowingChanges: Flow<Boolean> = MutableStateFlow(false),
     private val deviceConnectInterceptor: (DcPlaybackCommand, MusicQueueSnapshot?) -> Boolean = { _, _ -> false },
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob()),
     private val awaitLikes: suspend () -> Unit = {},
@@ -437,7 +440,8 @@ class MediaSessionPlayer(
                 musicPlayer.wantsPlaybackState,
                 musicPlayer.playbackStateFlow,
                 musicPlayer.playbackTransitionPending,
-            ) { _, _, _, _ -> Triple(isPlaying, playbackState, playWhenReady) }
+                deviceConnectFollowingChanges,
+            ) { _, _, _, _, _ -> Triple(isPlaying, playbackState, playWhenReady) }
                 .distinctUntilChanged()
                 .collect { state ->
                     val previous = publishedPlaybackState
@@ -653,7 +657,11 @@ class MediaSessionPlayer(
         if (playWhenReady) play() else pause()
     }
 
-    override fun getPlayWhenReady(): Boolean = remotePlaybackState?.value?.takeIf { it.isConnected }?.isPlaying ?: musicPlayer.wantsPlayback
+    // While this device only mirrors another one it makes no sound. Saying "playing" to the system makes a multipoint
+    // headset treat the phone as an active source and pause the device that really is playing (or pause us).
+    // The app's own progress and lyrics read the music player directly and are unaffected.
+    override fun getPlayWhenReady(): Boolean =
+        !isDeviceConnectFollowing() && (remotePlaybackState?.value?.takeIf { it.isConnected }?.isPlaying ?: musicPlayer.wantsPlayback)
 
     override fun setRepeatMode(repeatMode: Int) {
         if (isPlaybackLockedProvider()) return
@@ -1365,7 +1373,8 @@ class MediaSessionPlayer(
     override fun getPlaybackSuppressionReason(): Int = Player.PLAYBACK_SUPPRESSION_REASON_NONE
 
     override fun isPlaying(): Boolean =
-        terminalError == null && (remotePlaybackState?.value?.takeIf { it.isConnected }?.isPlaying ?: musicPlayer.isPlaying.value)
+        terminalError == null && !isDeviceConnectFollowing() &&
+            (remotePlaybackState?.value?.takeIf { it.isConnected }?.isPlaying ?: musicPlayer.isPlaying.value)
 
     override fun getPlayerError(): PlaybackException? = terminalError
 

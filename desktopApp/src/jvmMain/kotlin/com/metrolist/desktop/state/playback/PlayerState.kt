@@ -509,6 +509,9 @@ object PlayerState {
         )
     private val deviceConnect get() = DesktopDeviceConnect.manager.remote
 
+    /** True while this device only mirrors and controls another one, so it makes no sound itself. */
+    internal val isFollowingRemoteDevice: Boolean get() = deviceConnect.isFollowing
+
     @Volatile
     internal var externalReportingEnabled = true
     private val syncSession by lazy { DesktopDeviceConnectSession(queue) { deviceConnect } }
@@ -2561,6 +2564,9 @@ object PlayerState {
 
     var showMiniplayer by Settings.shared::showMiniplayer
     var showFloatingLyrics by Settings.shared::showFloatingLyrics
+
+    /** Session-only on purpose: a floater that starts out unclickable could never be closed if its shortcut failed to register. */
+    var floatingLyricsClickThrough by mutableStateOf(false)
     var miniplayerFocusMode by Settings.shared::miniplayerFocusMode
 
     fun toggleShuffle() {
@@ -3682,10 +3688,9 @@ object PlayerState {
     }
 
     fun removeQueueOccurrence(key: Long): QueueRemoval? {
-        if (isListenTogetherGuest() || Settings.shared.isQueueLocked) return null
         val state = queue.state.value
         val index = state.entries.indexOfFirst { it.key == key }
-        if (index <= state.currentIndex) return null
+        if (!canRemoveQueueEntry(index, state.currentIndex, isListenTogetherGuest())) return null
         return removeQueueItems(setOf(index), queue.snapshots.value)
     }
 

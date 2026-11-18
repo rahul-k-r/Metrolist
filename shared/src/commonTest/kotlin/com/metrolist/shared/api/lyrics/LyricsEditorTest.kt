@@ -95,7 +95,10 @@ class LyricsEditorTest {
     @Test
     fun unchangedJsonRoundTripPreservesEveryFieldAndSubCentisecond() {
         val editor = LyricsEditor(raw)
-        assertEquals("[00:01.234] <00:01.234>Hello <00:02.10>world\n[00:04.00] \n[00:05.00] Last", editor.current.text)
+        assertEquals(
+            "[00:01.234] {v1} <00:01.234>Hello <00:02.10>world [bg:<00:01.50>Hey]\n[00:04.00] \n[00:05.00] Last",
+            editor.current.text,
+        )
         editor.edit(editor.current.text, 12)
         assertEquals(Json.parseToJsonElement(raw), Json.parseToJsonElement(editor.current.json))
         assertFalse(editor.canUndo)
@@ -353,13 +356,13 @@ class LyricsEditorTest {
         val editor = LyricsEditor(raw)
         editor.edit(editor.current.text.replace("[00:01.234]", "[00:01.734]"), 0)
         assertTrue(editor.current.isValid)
-        assertTrue(editor.current.text.startsWith("[00:01.734] <00:01.734>Hello <00:02.60>world"))
+        assertTrue(editor.current.text.startsWith("[00:01.734] {v1} <00:01.734>Hello <00:02.60>world"))
         editor.timestamp(2234)
         assertTrue(editor.current.isValid)
-        assertTrue(editor.current.text.startsWith("[00:02.234] <00:02.234>Hello <00:03.10>world"))
+        assertTrue(editor.current.text.startsWith("[00:02.234] {v1} <00:02.234>Hello <00:03.10>world"))
         editor.shift(-500)
         assertTrue(editor.current.isValid)
-        assertTrue(editor.current.text.startsWith("[00:01.734] <00:01.734>Hello <00:02.60>world"))
+        assertTrue(editor.current.text.startsWith("[00:01.734] {v1} <00:01.734>Hello <00:02.60>world"))
         assertEquals(
             JsonPrimitive(2000),
             editor.current.document
@@ -410,6 +413,36 @@ class LyricsEditorTest {
         assertEquals(listOf("Hvað", "með", "…"), line.words!!.map { it.text })
         assertEquals(listOf(true, true, false), line.words!!.map { it.hasTrailingSpace })
         assertEquals(editor.current.document, LyricsEditor(editor.current.json).current.document)
+    }
+
+    @Test
+    fun wordTimestampInsertsAtTheCursorInsideATimedRowOnly() {
+        val editor = LyricsEditor("[00:08.20] Hello world\n[00:10.00] Next")
+        val row = "[00:08.20] Hello "
+        editor.edit(editor.current.text, row.length)
+        assertTrue(editor.wordTimestamp(9_000))
+        assertEquals("[00:08.20] Hello <00:09.00>world\n[00:10.00] Next", editor.current.text)
+        assertEquals(row.length + "<00:09.00>".length, editor.current.selectionStart)
+        assertTrue(editor.current.isValid)
+
+        editor.edit(editor.current.text, 3)
+        assertFalse(editor.wordTimestamp(9_500))
+        assertFalse(LyricsEditor("").wordTimestamp(1_000))
+    }
+
+    @Test
+    fun wordTimestampRefusesToSplitAnEscapeAgentTagOrExistingMarker() {
+        val prefix = "[00:08.20] "
+        for ((body, cursor) in listOf("a\\<b" to 2, "{v1} Hi" to 3, "{v1} Hi" to 1, "<00:08.50>Hi" to 4)) {
+            val editor = LyricsEditor("")
+            editor.edit("$prefix$body", prefix.length + cursor)
+            val before = editor.current.text
+            assertFalse(editor.wordTimestamp(9_000), "$body @ $cursor")
+            assertEquals(before, editor.current.text)
+        }
+        val editor = LyricsEditor("")
+        editor.edit("$prefix{v1} Hi", prefix.length + "{v1} ".length)
+        assertTrue(editor.wordTimestamp(9_000))
     }
 
     @Test
@@ -601,6 +634,39 @@ class LyricsEditorTest {
         assertTrue(editor.current.text.length < text.length)
         assertEquals(editor.current.text.length, editor.current.selectionStart)
         assertEquals(0, editor.current.selectionEnd)
-        assertTrue(editor.current.text.startsWith("[00:01.24] <00:01.24>Hello <00:02.14>world"))
+        assertTrue(editor.current.text.startsWith("[00:01.24] {v1} <00:01.24>Hello <00:02.14>world"))
+    }
+
+    @Test
+    fun backgroundAndSingerTagsEditTheirJsonFields() {
+        val editor = LyricsEditor("[00:01.00] Hello world\n[00:03.00] Next")
+        editor.edit("[00:01.00] {v2} Hello world [bg:<00:01.20>ooh <00:01.60>yeah]\n[00:03.00] Next [bg:echo]", 0)
+        assertTrue(editor.current.isValid)
+        val lines = editor.current.document.getValue("lines").jsonArray.map { it.jsonObject }
+        assertEquals(JsonPrimitive("v2"), lines[0]["agent"])
+        assertEquals(JsonPrimitive("ooh yeah"), lines[0]["backgroundText"])
+        val bg = lines[0].getValue("backgroundWords").jsonArray.map { it.jsonObject }
+        assertEquals(listOf(1200L, 1600L), bg.map { it.getValue("startMs").toString().toLong() })
+        assertEquals(JsonPrimitive(1600), bg[0]["endMs"])
+        assertEquals(JsonPrimitive("echo"), lines[1]["backgroundText"])
+        assertEquals(null, lines[1]["backgroundWords"])
+        assertEquals(editor.current.text, LyricsEditor(editor.current.json).current.text)
+
+        editor.edit("[00:01.00] Hello world\n[00:03.00] Next", 0)
+        val cleared = editor.current.document.getValue("lines").jsonArray.map { it.jsonObject }
+        assertEquals(null, cleared[0]["agent"])
+        assertEquals(null, cleared[0]["backgroundWords"])
+        assertEquals(null, cleared[1]["backgroundText"])
+    }
+
+    @Test
+    fun literalBraceAndBackgroundOpenerSurviveEscaping() {
+        val editor = LyricsEditor("[00:01.00] a")
+        editor.edit("[00:01.00] \\{v1} keep \\[bg:x]", 0)
+        assertTrue(editor.current.isValid)
+        val line = editor.current.document.getValue("lines").jsonArray[0].jsonObject
+        assertEquals(JsonPrimitive("{v1} keep [bg:x]"), line["text"])
+        assertEquals(null, line["agent"])
+        assertEquals("[00:01.00] \\{v1} keep \\[bg:x]", LyricsEditor(editor.current.json).current.text)
     }
 }

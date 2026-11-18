@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.metrolist.shared.api.lyrics.LyricsUtils
+import com.metrolist.shared.api.lyrics.withEstimatedWords
 import com.metrolist.shared.model.LyricsEntry
 import com.metrolist.shared.model.WordTimestamp
 import com.metrolist.shared.settings.Settings
@@ -305,9 +306,14 @@ fun ActiveLyricsLineContent(
     val animationStyleSetting = Settings.shared.lyricsAnimationStyle
     val showTranslations = Settings.shared.lyricsShowTranslations
     val syllableRomanizationSetting = Settings.shared.lyricsSyllableRomanizationEnabled
+    val estimatedSweep = Settings.shared.lyricsEstimatedWordSweep
+    val sweptEntry =
+        remember(entry, estimatedSweep, lineEndTimeMs) {
+            if (estimatedSweep) entry.withEstimatedWords(lineEndTimeMs.takeIf { it != Long.MAX_VALUE }) else entry
+        }
     val prep =
         remember(
-            entry,
+            sweptEntry,
             lyricStyle,
             romanizationEnabled,
             romanizeAsMainSetting,
@@ -316,7 +322,7 @@ fun ActiveLyricsLineContent(
             syllableRomanizationSetting,
         ) {
             ActiveLinePrep.build(
-                entry = entry,
+                entry = sweptEntry,
                 lyricStyle = lyricStyle,
                 romanizationEnabled = romanizationEnabled,
                 romanizeAsMainSetting = romanizeAsMainSetting,

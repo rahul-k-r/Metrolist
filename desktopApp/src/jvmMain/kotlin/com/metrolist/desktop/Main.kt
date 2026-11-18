@@ -115,6 +115,7 @@ import com.metrolist.desktop.ui.components.FloatingLyricsWindow
 import com.metrolist.desktop.ui.components.FloatingSearchOverlay
 import com.metrolist.desktop.ui.components.FullscreenPlayerView
 import com.metrolist.desktop.ui.components.LocalCaptionBarInsets
+import com.metrolist.desktop.ui.components.FloatingWindowsHotkey
 import com.metrolist.desktop.ui.components.MiniplayerWindow
 import com.metrolist.desktop.ui.components.ShortcutsOverlay
 import com.metrolist.desktop.ui.components.TokenLoginDialog
@@ -582,8 +583,6 @@ private fun WindowScope.AppContent(
                 )
             }
         }
-
-        if (integrationsReady) MiniplayerWindow()
 
         if (UiState.showFloatingSearch) {
             FloatingSearchOverlay(
@@ -1610,6 +1609,11 @@ private fun runDesktopApp(args: Array<String>) {
         // floating window's recomposition.
         if (integrationsReady && backendReady) {
             FloatingLyricsWindow()
+        }
+        // Same reason: the miniplayer must open, close and update while the main window sits in the tray.
+        if (integrationsReady) {
+            MiniplayerWindow()
+            FloatingWindowsHotkey()
         }
 
         if (integrationsReady) ComposeTrayManager.TrayIcon()

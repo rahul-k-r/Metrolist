@@ -155,9 +155,11 @@ import com.metrolist.shared.playback.LocalPlayerSession
 import com.metrolist.shared.playback.QueueRemoval
 import com.metrolist.shared.playback.SleepTimerState
 import com.metrolist.shared.settings.Settings
+import com.metrolist.shared.settings.SongMarkBadges
 import com.metrolist.shared.ui.LocalIsTv
 import com.metrolist.shared.ui.components.ChipShelf
 import com.metrolist.shared.ui.components.ContainedLoadingIndicator
+import com.metrolist.shared.ui.components.IncognitoMarkIcon
 import com.metrolist.shared.ui.components.PlayerMenuAction
 import com.metrolist.shared.ui.components.ReorderMenu
 import com.metrolist.shared.ui.components.animateCurrentSongColors
@@ -285,6 +287,7 @@ data class QueueTrack(
     val entryKey: Long = -1L,
     val uniqueKey: String = id,
     val thumbnailAspectRatio: Float = 1f,
+    val artistIds: List<String?> = emptyList(),
 )
 
 internal fun prepareQueueTracks(
@@ -310,6 +313,7 @@ internal fun prepareQueueTracks(
             entryKey = entryKey,
             uniqueKey = entryKey.toString(),
             thumbnailAspectRatio = item.thumbnailAspectRatio,
+            artistIds = item.artistIds,
         )
     }
 
@@ -1496,6 +1500,7 @@ private fun TrackItem(
                 ) {
                     MetadataIcons(track = track)
                     if (
+                        SongMarkBadges.incognito(track.id, track.artistIds) ||
                         track.isLiked ||
                         track.isExplicit ||
                         track.isSaved ||
@@ -1561,6 +1566,7 @@ private fun MetadataIcons(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(1.3.dp),
     ) {
+        if (SongMarkBadges.incognito(track.id, track.artistIds)) IncognitoMarkIcon(size = 13.dp)
         if (track.isLiked) {
             Icon(
                 imageVector = SongStatusIcons.Liked,

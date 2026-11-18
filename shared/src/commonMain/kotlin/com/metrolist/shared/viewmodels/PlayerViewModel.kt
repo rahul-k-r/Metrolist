@@ -2185,6 +2185,7 @@ class PlayerViewModel(
         val isSuggested: Boolean = false,
         val thumbnailAspectRatio: Float = 1f,
         val musicVideoType: String? = null,
+        val artistIds: List<String?> = emptyList(),
     )
 
     private suspend fun SongItem.toQueueItemUiModel(isSuggested: Boolean): QueueItemUiModel =
@@ -2201,6 +2202,7 @@ class PlayerViewModel(
                 isSuggested = isSuggested,
                 thumbnailAspectRatio = previewAspectRatio,
                 musicVideoType = musicVideoType,
+                artistIds = artists.map { it.id },
             )
         }
 

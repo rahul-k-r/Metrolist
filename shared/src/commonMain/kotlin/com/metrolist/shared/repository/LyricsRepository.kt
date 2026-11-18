@@ -31,7 +31,11 @@ import com.metrolist.shared.model.MlxDocument
 import com.metrolist.shared.model.MlxSong
 import com.metrolist.shared.model.WordTimestamp
 import com.metrolist.shared.model.lyricsProviderLabel
+import com.metrolist.shared.settings.LyricsSyncItem
+import com.metrolist.shared.settings.LyricsSyncStamps
+import com.metrolist.shared.settings.MAX_LYRICS_SYNC_SONGS
 import com.metrolist.shared.settings.ProviderLyricsOffsets
+import com.metrolist.shared.settings.isAcceptable
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.state.GlobalYouTube
 import com.metrolist.shared.utils.systemCountryCode
@@ -694,8 +698,10 @@ class LyricsRepository(
     ): LyricsProviderResult {
         if (result.provider == LyricsProvider.USER) {
             databaseDao?.restoreStashedUserLyrics(videoId)
+            syncStamps.touch(videoId)
             return getUserLyrics(videoId)?.let(::userProviderResult) ?: result
         }
+        syncStamps.touch(videoId)
         // An explicit provider choice replaces the User fork; keep it so the User entry can restore it.
         databaseDao?.stashUserLyrics(videoId)
         databaseDao?.saveLyrics(
@@ -786,6 +792,7 @@ class LyricsRepository(
         } else {
             dao.setLyricsOffset(videoId, offsetMs)
         }
+        syncStamps.touch(videoId)
         return true
     }
 
@@ -1542,10 +1549,69 @@ class LyricsRepository(
         draft: String? = null,
     ) {
         checkNotNull(databaseDao).saveUserLyrics(videoId, lyricsText, draft)
+        syncStamps.touch(videoId)
     }
 
     suspend fun revertUserLyrics(videoId: String) {
         checkNotNull(databaseDao).saveUserLyrics(videoId, null, null)
+        syncStamps.touch(videoId)
+    }
+
+    private val syncStamps: LyricsSyncStamps
+        get() = LyricsSyncStamps({ Settings.shared.lyricsSyncStampsJson }, { Settings.shared.lyricsSyncStampsJson = it }, nowMs)
+
+    /** Device Connect lyrics sync: the user-made lyrics, offsets and provider pick of each stamped song. */
+    suspend fun exportSyncItems(ids: Collection<String>): List<LyricsSyncItem> {
+        val dao = databaseDao ?: return emptyList()
+        val stamps = syncStamps.all()
+        val providerOffsets = ProviderLyricsOffsets.parse(Settings.shared.providerLyricsOffsetsJson)
+        return ids.mapNotNull { id ->
+            val updatedAt = stamps[id] ?: return@mapNotNull null
+            val entity = dao.cachedLyrics(id)
+            val pick =
+                entity?.takeIf {
+                    it.isUserSelected && it.provider != USER_LYRICS_PROVIDER && it.provider != LyricsEntity.LYRICS_NOT_FOUND &&
+                        it.lyrics.isNotBlank()
+                }
+            LyricsSyncItem(
+                songId = id,
+                updatedAt = updatedAt,
+                userLyrics = entity?.userLyrics,
+                offsetMs = entity?.offsetMs ?: 0,
+                providerOffsets =
+                    providerOffsets
+                        .filterKeys { it.startsWith("$id|") }
+                        .mapKeys { it.key.removePrefix("$id|") },
+                provider = pick?.provider,
+                providerLyrics = pick?.lyrics,
+            )
+        }
+    }
+
+    /** Applies items that are newer than what this device has; returns how many songs changed. */
+    suspend fun applySyncItems(items: List<LyricsSyncItem>): Int {
+        val dao = databaseDao ?: return 0
+        var applied = 0
+        for (item in items.filter { it.isAcceptable() }.take(MAX_LYRICS_SYNC_SONGS)) {
+            if (!syncStamps.shouldApply(item.songId, item.updatedAt)) continue
+            val existing = dao.cachedLyrics(item.songId)
+            if (existing != null || item.userLyrics != null || item.offsetMs != 0) {
+                dao.saveUserLyrics(item.songId, item.userLyrics, null)
+                dao.setLyricsOffset(item.songId, item.offsetMs)
+            }
+            if (item.provider != null && item.providerLyrics != null) {
+                dao.saveLyrics(
+                    LyricsEntity(id = item.songId, lyrics = item.providerLyrics, provider = item.provider, isUserSelected = true),
+                )
+            }
+            for ((provider, offset) in item.providerOffsets) {
+                Settings.shared.providerLyricsOffsetsJson =
+                    ProviderLyricsOffsets.set(Settings.shared.providerLyricsOffsetsJson, item.songId, provider, offset)
+            }
+            syncStamps.accept(item.songId, item.updatedAt)
+            applied++
+        }
+        return applied
     }
 
     private companion object {

@@ -206,6 +206,27 @@ internal fun SettingsUiRegistryBuilder.registerLyricsSettings(host: SharedSettin
                 ) { settings.lyricsPlusLighter = it }
             }
         }
+        if (host.platform == SettingsPlatform.DESKTOP) {
+            group("floatingLyrics", stringResource(Res.string.floating_lyrics)) {
+                val shortcutTitle = stringResource(Res.string.floating_lyrics_shortcut_title)
+                val shortcutDescription = stringResource(Res.string.floating_lyrics_shortcut_description)
+                custom(
+                    id = "floatingLyricsClickThroughShortcut",
+                    title = shortcutTitle,
+                    description = shortcutDescription,
+                ) { onSettingValueChanged ->
+                    FloatingLyricsShortcutEditor(
+                        title = shortcutTitle,
+                        description = shortcutDescription,
+                        value = settings.floatingLyricsClickThroughShortcut,
+                        onValueChange = {
+                            settings.floatingLyricsClickThroughShortcut = it
+                            onSettingValueChanged()
+                        },
+                    )
+                }
+            }
+        }
         group("lyricsAdvanced", stringResource(Res.string.lyrics_settings_title)) {
             if (SettingsPageId.LYRICS_SOURCES in host.availablePages) {
                 navigation(

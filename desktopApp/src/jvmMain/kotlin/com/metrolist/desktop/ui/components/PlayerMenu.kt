@@ -70,6 +70,8 @@ import com.metrolist.shared.generated.resources.hide_queue
 import com.metrolist.shared.generated.resources.lyrics_offset
 import com.metrolist.shared.generated.resources.lyrics_respect_agent_positioning
 import com.metrolist.shared.generated.resources.lyrics_show_floating
+import com.metrolist.shared.generated.resources.lyrics_estimated_sweep_description
+import com.metrolist.shared.generated.resources.lyrics_estimated_sweep_title
 import com.metrolist.shared.generated.resources.lyrics_show_translations
 import com.metrolist.shared.generated.resources.manual_translate_this_track
 import com.metrolist.shared.generated.resources.no_provider_results_found
@@ -132,6 +134,7 @@ fun LyricsActionsMenuCard(
     var respectAgentPositioning by remember { mutableStateOf(Settings.shared.respectAgentPositioning) }
     var showIntervalIndicator by remember { mutableStateOf(true) }
     var romanizeChecked by remember { mutableStateOf(Settings.shared.lyricsRomanizationEnabled) }
+    var estimatedSweepChecked by remember { mutableStateOf(Settings.shared.lyricsEstimatedWordSweep) }
     var aiTranslationChecked by remember(LyricsState.manualAiTranslationEnabled) { mutableStateOf(LyricsState.manualAiTranslationEnabled) }
     var showTranslationsChecked by remember { mutableStateOf(Settings.shared.lyricsShowTranslations) }
 
@@ -341,6 +344,22 @@ fun LyricsActionsMenuCard(
                     Settings.shared.lyricsRomanizationEnabled = it
                 },
             )
+
+            // Only lines that are timed per line need estimating; per-word timing is already real.
+            val entries = LyricsState.currentLyricsEntries
+            if (entries.any { it.time > 0L } && entries.none { entry -> entry.words.orEmpty().any { !it.isLineTimed } }) {
+                LyricsToggleRow(
+                    icon = MetrolistIcons.Outlined.FastForward,
+                    title = stringResource(Res.string.lyrics_estimated_sweep_title),
+                    subtitle = stringResource(Res.string.lyrics_estimated_sweep_description),
+                    checked = estimatedSweepChecked,
+                    colorScheme = colorScheme,
+                    onCheckedChange = {
+                        estimatedSweepChecked = it
+                        Settings.shared.lyricsEstimatedWordSweep = it
+                    },
+                )
+            }
         }
     }
 }

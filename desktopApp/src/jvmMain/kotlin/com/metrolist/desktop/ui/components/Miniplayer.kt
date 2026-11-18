@@ -16,6 +16,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -54,6 +55,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,6 +64,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -70,6 +75,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
@@ -82,15 +88,21 @@ import com.metrolist.desktop.state.content.PlaylistAlbumState
 import com.metrolist.desktop.state.playback.ListenTogetherState
 import com.metrolist.desktop.state.playback.PlayerState
 import com.metrolist.desktop.ui.DesktopDensityProvider
+import com.metrolist.desktop.ui.theme.MetrolistTheme
 import com.metrolist.desktop.utils.ComposeTrayManager
 import com.metrolist.desktop.utils.WindowDragHandle
 import com.metrolist.desktop.window.WindowVisibility
 import com.metrolist.desktop.window.WindowsMiniPlayerWindowFrame
+import com.metrolist.desktop.window.setWindowClickThrough
+import com.metrolist.desktop.window.setWindowHiddenFromCapture
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.cd_playback_position
 import com.metrolist.shared.generated.resources.close_miniplayer
 import com.metrolist.shared.generated.resources.enter_focus_mode
 import com.metrolist.shared.generated.resources.exit_focus_mode
+import com.metrolist.shared.generated.resources.floating_lyrics_hide_from_capture
+import com.metrolist.shared.generated.resources.floating_lyrics_translucent
+import com.metrolist.shared.generated.resources.hide_queue
 import com.metrolist.shared.generated.resources.loading
 import com.metrolist.shared.generated.resources.miniplayer
 import com.metrolist.shared.generated.resources.next
@@ -98,6 +110,7 @@ import com.metrolist.shared.generated.resources.no_track_playing
 import com.metrolist.shared.generated.resources.pause
 import com.metrolist.shared.generated.resources.play
 import com.metrolist.shared.generated.resources.previous
+import com.metrolist.shared.generated.resources.show_queue
 import com.metrolist.shared.model.isLive
 import com.metrolist.shared.model.previewThumbnailUrl
 import com.metrolist.shared.settings.PlayerBackgroundStyle
@@ -109,15 +122,48 @@ import com.metrolist.shared.ui.utils.ArtworkBlurStyle
 import com.metrolist.shared.utils.OsUtil
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
+import java.awt.Cursor
+import java.awt.Toolkit
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 
+internal val MiniplayerWidth = 420.dp
+internal val MiniplayerCompactHeight = 192.dp
+internal val MiniplayerFocusSize = 300.dp
+internal val MiniplayerMinQueueHeight = 360.dp
+internal val MiniplayerMaxQueueHeight = 1000.dp
+private val MiniplayerDefaultQueueHeight = 560.dp
+
+/** The window only grows vertically: the width is fixed and the height stays within what the queue list can use. */
+internal fun clampMiniplayerHeight(height: Dp): Dp = height.coerceIn(MiniplayerMinQueueHeight, MiniplayerMaxQueueHeight)
+
+/** Moves a window of [height] up just enough to fit above [bottom]; never above [top]. */
+internal fun keepVerticallyOnScreen(
+    y: Int,
+    height: Int,
+    top: Int,
+    bottom: Int,
+): Int = y.coerceAtMost(bottom - height).coerceAtLeast(top)
+
+/**
+ * Composed at application level (see Main.kt), so it opens, closes and updates while the main window is hidden in the
+ * tray. Borderless, so the bottom edge carries its own vertical-only resize handle while the queue is open.
+ */
 @Composable
 fun MiniplayerWindow() {
     if (!PlayerState.showMiniplayer) return
 
     val isFocusMode = PlayerState.miniplayerFocusMode
-    val windowSize = if (isFocusMode) DpSize(300.dp, 300.dp) else DpSize(420.dp, 160.dp)
+    var showQueue by remember { mutableStateOf(false) }
+    var queueHeight by remember { mutableStateOf(MiniplayerDefaultQueueHeight) }
+    val queueOpen = showQueue && !isFocusMode
+    val windowSize =
+        when {
+            isFocusMode -> DpSize(MiniplayerFocusSize, MiniplayerFocusSize)
+            queueOpen -> DpSize(MiniplayerWidth, queueHeight)
+            else -> DpSize(MiniplayerWidth, MiniplayerCompactHeight)
+        }
     val windowState =
         remember {
             WindowState(
@@ -127,53 +173,80 @@ fun MiniplayerWindow() {
         }
 
     val isNightMode = Settings.shared.isPureBlackTheme()
-    // Linux backends can consume the render loop without drawing transparent undecorated windows.
-    val transparentWindow = !(OsUtil.isLinux || OsUtil.isWindows)
+    val clickThrough = PlayerState.floatingLyricsClickThrough
+    val hideFromCapture = Settings.shared.miniplayerHideFromCapture
+    // Per-pixel transparency is unreliable on Linux compositors (it can consume the render loop without drawing).
+    val transparentWindow = !OsUtil.isLinux
+    val translucent = transparentWindow && Settings.shared.miniplayerTranslucent && !isFocusMode
 
     Window(
         onCloseRequest = { PlayerState.showMiniplayer = false },
         title = stringResource(Res.string.miniplayer),
         resizable = false,
         visible = true,
-        undecorated = !OsUtil.isWindows,
+        undecorated = true,
         transparent = transparentWindow,
         state = windowState,
         alwaysOnTop = true,
     ) {
+        LaunchedEffect(window, hideFromCapture) { setWindowHiddenFromCapture(window, hideFromCapture) }
+        LaunchedEffect(window, clickThrough) { setWindowClickThrough(window, clickThrough) }
         val windowDensity = LocalDensity.current.density
         DesktopDensityProvider {
             val scale = LocalDensity.current.density / windowDensity
             LaunchedEffect(windowSize, scale) {
-                windowState.size = DpSize(windowSize.width * scale, windowSize.height * scale)
+                val target = DpSize(windowSize.width * scale, windowSize.height * scale)
+                windowState.size = target
+                // The window grows downward; pull it up so the queue and its resize handle stay on screen.
+                val config = window.graphicsConfiguration
+                if (config != null) {
+                    val insets = Toolkit.getDefaultToolkit().getScreenInsets(config)
+                    val bounds = config.bounds
+                    val y =
+                        keepVerticallyOnScreen(
+                            y = window.y,
+                            height = target.height.value.roundToInt(),
+                            top = bounds.y + insets.top,
+                            bottom = bounds.y + bounds.height - insets.bottom,
+                        )
+                    if (y != window.y) windowState.position = WindowPosition(window.x.dp, y.dp)
+                }
             }
-            WindowVisibility(window) {
-                if (OsUtil.isWindows) {
-                    val areWeInDarkMode = remember { mutableStateOf(false) }
-                    WindowsMiniPlayerWindowFrame(
-                        onCloseRequest = { PlayerState.showMiniplayer = false },
-                        content = {
-                            val colorScheme = MaterialTheme.colorScheme
-                            areWeInDarkMode.value = !MaterialTheme.colorScheme.background.isLight()
-                            WindowDraggableArea {
-                                if (isFocusMode) {
-                                    FocusModeMiniplayer(colorScheme, isNightMode, transparentWindow)
-                                } else {
-                                    StandardMiniplayer(colorScheme, isNightMode, transparentWindow)
-                                }
-                            }
-                        },
-                        state = windowState,
-                        darkTheme = areWeInDarkMode.value,
-                    )
-                } else {
+            // The main window's own copy stops running while it is hidden in the tray, which froze the accent colours.
+            UpdateArtworkTheme()
+            MetrolistTheme {
+                WindowVisibility(window) {
                     val colorScheme = MaterialTheme.colorScheme
-
-                    WindowDragHandle(isMaximized = false, onRestoreFromMaximized = {}) {
+                    val content: @Composable () -> Unit = {
                         if (isFocusMode) {
                             FocusModeMiniplayer(colorScheme, isNightMode, transparentWindow)
                         } else {
-                            StandardMiniplayer(colorScheme, isNightMode, transparentWindow)
+                            StandardMiniplayer(
+                                colorScheme = colorScheme,
+                                isNightMode = isNightMode,
+                                transparentWindow = transparentWindow,
+                                translucent = translucent,
+                                clickThrough = clickThrough,
+                                hideFromCapture = hideFromCapture,
+                                queueOpen = queueOpen,
+                                onToggleQueue = { showQueue = !showQueue },
+                                onResize = { dy -> queueHeight = clampMiniplayerHeight(queueHeight + dy / scale) },
+                            )
                         }
+                    }
+                    if (OsUtil.isWindows) {
+                        val areWeInDarkMode = remember { mutableStateOf(false) }
+                        WindowsMiniPlayerWindowFrame(
+                            onCloseRequest = { PlayerState.showMiniplayer = false },
+                            content = {
+                                areWeInDarkMode.value = !MaterialTheme.colorScheme.background.isLight()
+                                WindowDraggableArea { content() }
+                            },
+                            state = windowState,
+                            darkTheme = areWeInDarkMode.value,
+                        )
+                    } else {
+                        WindowDragHandle(isMaximized = false, onRestoreFromMaximized = {}) { content() }
                     }
                 }
             }
@@ -182,18 +255,106 @@ fun MiniplayerWindow() {
 }
 
 @Composable
+private fun MiniplayerHeader(
+    colorScheme: ColorScheme,
+    translucent: Boolean,
+    hideFromCapture: Boolean,
+    queueOpen: Boolean,
+    onToggleQueue: () -> Unit,
+) {
+    val tint = colorScheme.onSurfaceVariant
+    Row(
+        modifier = Modifier.fillMaxWidth().height(36.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.End,
+    ) {
+        HeaderIcon(
+            icon = if (hideFromCapture) MetrolistIcons.Filled.VisibilityOff else MetrolistIcons.Filled.Visibility,
+            description = stringResource(Res.string.floating_lyrics_hide_from_capture),
+            tint = tint,
+            active = hideFromCapture,
+            onClick = { Settings.shared.miniplayerHideFromCapture = !hideFromCapture },
+        )
+        if (!OsUtil.isLinux) {
+            HeaderIcon(
+                icon = MetrolistIcons.Outlined.Palette,
+                description = stringResource(Res.string.floating_lyrics_translucent),
+                tint = tint,
+                active = translucent,
+                onClick = { Settings.shared.miniplayerTranslucent = !translucent },
+            )
+        }
+        HeaderIcon(
+            icon = MetrolistIcons.Outlined.Image,
+            description = stringResource(Res.string.enter_focus_mode),
+            tint = tint,
+            active = false,
+            onClick = { Settings.shared.miniplayerFocusMode = true },
+        )
+        HeaderIcon(
+            icon = MetrolistIcons.AutoMirrored.Outlined.QueueMusic,
+            description = stringResource(if (queueOpen) Res.string.hide_queue else Res.string.show_queue),
+            tint = tint,
+            active = queueOpen,
+            onClick = onToggleQueue,
+        )
+        HeaderIcon(
+            icon = MetrolistIcons.Outlined.Close,
+            description = stringResource(Res.string.close_miniplayer),
+            tint = tint,
+            active = false,
+            onClick = { PlayerState.showMiniplayer = false },
+        )
+    }
+}
+
+/** A bottom-edge handle that changes only the height. */
+@Composable
+private fun VerticalResizeHandle(
+    onResize: (dy: Dp) -> Unit,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    val density = LocalDensity.current
+    val currentOnResize by rememberUpdatedState(onResize)
+    Box(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(12.dp)
+                .pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.N_RESIZE_CURSOR)))
+                .pointerInput(density) {
+                    detectDragGestures { change, drag ->
+                        change.consume()
+                        currentOnResize(with(density) { drag.y.toDp() })
+                    }
+                },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(Modifier.width(40.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(color.copy(alpha = 0.4f)))
+    }
+}
+
+@Composable
 private fun StandardMiniplayer(
     colorScheme: ColorScheme,
     isNightMode: Boolean,
     transparentWindow: Boolean,
+    translucent: Boolean,
+    clickThrough: Boolean,
+    hideFromCapture: Boolean,
+    queueOpen: Boolean,
+    onToggleQueue: () -> Unit,
+    onResize: (Dp) -> Unit,
 ) {
     val isListenTogetherGuest = ListenTogetherState.isListenTogetherGuest()
+    val baseColor = if (isNightMode) Color.Black else colorScheme.surfaceContainerHigh
     Surface(
         modifier =
             Modifier
                 .fillMaxSize(),
         shape = RoundedCornerShape(if (transparentWindow) 16.dp else 0.dp),
-        color = if (isNightMode) Color.Black else colorScheme.surfaceContainerHigh,
+        color = if (translucent) baseColor.copy(alpha = FLOATING_LYRICS_TRANSLUCENT_BACKGROUND_ALPHA) else baseColor,
         border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.3f)),
         tonalElevation = 0.dp,
     ) {
@@ -205,7 +366,7 @@ private fun StandardMiniplayer(
                     .padding(8.dp),
             contentAlignment = Alignment.Center,
         ) {
-            if (!OsUtil.isLinux) {
+            if (!OsUtil.isLinux && !translucent) {
                 if (Settings.shared.playerBackgroundStyle == PlayerBackgroundStyle.BLURRED_ARTWORK) {
                     AsyncImage(
                         url = PlayerState.currentArtworkUrl ?: "",
@@ -240,8 +401,15 @@ private fun StandardMiniplayer(
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .padding(start = 16.dp, end = 16.dp, top = 8.dp),
+                        .graphicsLayer { alpha = if (translucent) FLOATING_LYRICS_TRANSLUCENT_TEXT_ALPHA else 1f }
+                        .padding(start = 16.dp, end = 16.dp),
             ) {
+                // While clicks pass through the buttons could not be used anyway.
+                if (!clickThrough) {
+                    MiniplayerHeader(colorScheme, translucent, hideFromCapture, queueOpen, onToggleQueue)
+                } else {
+                    Spacer(Modifier.height(36.dp))
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     AsyncImage(
                         url = PlayerState.currentArtworkUrl ?: "",
@@ -264,7 +432,6 @@ private fun StandardMiniplayer(
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
-                                    .padding(end = 84.dp)
                                     .basicMarquee(
                                         iterations = 1,
                                         initialDelayMillis = 10000,
@@ -273,10 +440,7 @@ private fun StandardMiniplayer(
                         )
 
                         Row(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(end = 84.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             val artists = PlayerState.currentTrack?.artists ?: emptyList()
@@ -341,35 +505,12 @@ private fun StandardMiniplayer(
                             .fillMaxWidth()
                             .height(48.dp),
                 )
-            }
 
-            Row(
-                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                IconButton(
-                    onClick = { Settings.shared.miniplayerFocusMode = !Settings.shared.miniplayerFocusMode },
-                    modifier = Modifier.size(40.dp),
-                    shapes = IconButtonDefaults.shapes(),
-                ) {
-                    Icon(
-                        MetrolistIcons.Outlined.Fullscreen,
-                        stringResource(Res.string.enter_focus_mode),
-                        modifier = Modifier.size(16.dp),
-                        tint = colorScheme.onSurfaceVariant,
-                    )
-                }
-                IconButton(
-                    onClick = { PlayerState.showMiniplayer = false },
-                    modifier = Modifier.size(40.dp),
-                    shapes = IconButtonDefaults.shapes(),
-                ) {
-                    Icon(
-                        MetrolistIcons.Outlined.Close,
-                        stringResource(Res.string.close_miniplayer),
-                        modifier = Modifier.size(16.dp),
-                        tint = colorScheme.onSurfaceVariant,
-                    )
+                if (queueOpen && !clickThrough) {
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(12.dp))) {
+                        DesktopQueueContent(onDismiss = onToggleQueue, colorScheme = colorScheme)
+                    }
+                    VerticalResizeHandle(onResize = onResize, color = colorScheme.onSurfaceVariant)
                 }
             }
         }

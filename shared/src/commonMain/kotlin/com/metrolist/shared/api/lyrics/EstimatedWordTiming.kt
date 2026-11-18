@@ -6,6 +6,20 @@ import com.metrolist.shared.model.WordTimestamp
 private const val MIN_SPAN_MS = 1_000L
 private const val MAX_MS_PER_CHAR = 120L
 
+/** Real per-word timing: background vocals, line-timed stand-ins and zero-length words don't count. */
+fun LyricsEntry.hasWordTiming(): Boolean = words.orEmpty().any { !it.isBackground && !it.isLineTimed && it.endTime > it.startTime }
+
+/** The sweep toggle is offered for synced lyrics where no line has real word timing. */
+fun List<LyricsEntry>.canEstimateWordSweep(): Boolean = any { it.time > 0L } && none { it.hasWordTiming() }
+
+/**
+ * Estimates words for every line of a line-synced list, each ending where the next line starts. Done once at the
+ * source, so the renderer, the word-sync decision and the position clock all see the same words. Lists that
+ * already carry real word timing, or aren't synced, come back as the same instance.
+ */
+fun List<LyricsEntry>.withEstimatedWordTiming(): List<LyricsEntry> =
+    if (!canEstimateWordSweep()) this else mapIndexed { index, entry -> entry.withEstimatedWords(getOrNull(index + 1)?.time) }
+
 /**
  * Gives a line that only carries line-level timing synthetic word timings, so the word sweep can
  * animate it. Each word gets a share of the line's sung span proportional to its length. The span
@@ -13,7 +27,7 @@ private const val MAX_MS_PER_CHAR = 120L
  * line doesn't stretch the sweep. Lines with real word timing are returned untouched.
  */
 fun LyricsEntry.withEstimatedWords(endMs: Long?): LyricsEntry {
-    if (words.orEmpty().any { !it.isBackground && !it.isLineTimed && it.endTime > it.startTime }) return this
+    if (hasWordTiming()) return this
     val tokens = text.split(Regex("\\s+")).filter { it.isNotEmpty() }
     if (tokens.isEmpty()) return this
     val end = endMs ?: endTime ?: return this

@@ -31,6 +31,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.metrolist.shared.api.lyrics.LyricsUtils
+import com.metrolist.shared.api.lyrics.canEstimateWordSweep
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.ai_translation_for_track
 import com.metrolist.shared.generated.resources.cancel
@@ -265,7 +266,7 @@ fun LyricsMenu(
                                 )
                             },
                         ),
-                        if (lyricsUiState.lyrics.any { it.time > 0L } && lyricsUiState.lyrics.none { it.words.orEmpty().any { w -> !w.isLineTimed } }) {
+                        if (lyricsUiState.lyrics.canEstimateWordSweep()) {
                             Material3MenuItemData(
                                 title = { Text(stringResource(Res.string.lyrics_estimated_sweep_title)) },
                                 description = { Text(stringResource(Res.string.lyrics_estimated_sweep_description)) },

@@ -112,6 +112,7 @@ import androidx.compose.ui.unit.sp
 import com.metrolist.shared.api.lyrics.LyricsUtils
 import com.metrolist.shared.api.lyrics.LyricsUtils.lyricsPositionForOffset
 import com.metrolist.shared.api.lyrics.LyricsUtils.lyricsSeekPositionForOffset
+import com.metrolist.shared.api.lyrics.withEstimatedWordTiming
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.cancel
 import com.metrolist.shared.generated.resources.lyrics_curated_by
@@ -256,6 +257,8 @@ fun LyricsView(
     isLiquidBackground: Boolean = Settings.shared.playerBackgroundStyle == PlayerBackgroundStyle.LIQUID,
 ) {
     val textColor = resolveLyricsTextColor(textColor)
+    val estimatedSweep = Settings.shared.lyricsEstimatedWordSweep
+    val lyrics = remember(lyrics, estimatedSweep) { if (estimatedSweep) lyrics.withEstimatedWordTiming() else lyrics }
     val translationShimmer = rememberTranslationShimmer(translationProgress.isTranslating && isVisible)
     val shimmerColor = MaterialTheme.colorScheme.primary
     val globalOffsetMs = Settings.shared.globalLyricsOffsetMs

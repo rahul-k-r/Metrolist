@@ -49,6 +49,7 @@ import com.metrolist.desktop.state.playback.ListenTogetherState
 import com.metrolist.desktop.state.playback.LyricsState
 import com.metrolist.desktop.state.playback.PlayerState
 import com.metrolist.shared.api.lyrics.LyricsUtils
+import com.metrolist.shared.api.lyrics.canEstimateWordSweep
 import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.add_romanization_below_lyrics
@@ -347,7 +348,7 @@ fun LyricsActionsMenuCard(
 
             // Only lines that are timed per line need estimating; per-word timing is already real.
             val entries = LyricsState.currentLyricsEntries
-            if (entries.any { it.time > 0L } && entries.none { entry -> entry.words.orEmpty().any { !it.isLineTimed } }) {
+            if (entries.canEstimateWordSweep()) {
                 LyricsToggleRow(
                     icon = MetrolistIcons.Outlined.FastForward,
                     title = stringResource(Res.string.lyrics_estimated_sweep_title),

@@ -4,6 +4,7 @@ import com.metrolist.shared.model.LyricsEntry
 import com.metrolist.shared.model.WordTimestamp
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -33,6 +34,41 @@ class EstimatedWordTimingTest {
         assertSame(blank, blank.withEstimatedWords(2_000))
         val noEnd = LyricsEntry(0, "a b")
         assertSame(noEnd, noEnd.withEstimatedWords(null))
+    }
+
+    @Test
+    fun theToggleIsOfferedUnlessALineHasRealWordTiming() {
+        val plain = LyricsEntry(1_000, "la la")
+        val backgroundOnly = LyricsEntry(2_000, "la", words = listOf(WordTimestamp("ooh", 2.0, 2.4, isBackground = true)))
+        val zeroLength = LyricsEntry(3_000, "la", words = listOf(WordTimestamp("la", 3.0, 3.0)))
+        val real = LyricsEntry(4_000, "la", words = listOf(WordTimestamp("la", 4.0, 4.5)))
+        assertTrue(listOf(plain, backgroundOnly, zeroLength).canEstimateWordSweep())
+        assertFalse(listOf(plain, real).canEstimateWordSweep())
+        assertFalse(listOf(LyricsEntry(0, "unsynced")).canEstimateWordSweep())
+        assertFalse(emptyList<LyricsEntry>().canEstimateWordSweep())
+    }
+
+    @Test
+    fun listEstimationEndsEachLineAtTheNextAndLeavesOtherListsAlone() {
+        val list = listOf(LyricsEntry(1_000, "aa bb"), LyricsEntry(3_000, "cc dd"), LyricsEntry(6_000, "ee ff"))
+        val estimated = list.withEstimatedWordTiming()
+        // A short line sweeps for its minimum span rather than stretching to the next line.
+        assertEquals(2.0, estimated[0].words!!.last().endTime, 1e-9)
+        assertTrue(estimated[1].words!!.last().endTime <= 6.0)
+        assertSame(list[2], estimated[2], "the last line has no known end and stays as it was")
+
+        val real = listOf(list[0], LyricsEntry(3_000, "x", words = listOf(WordTimestamp("x", 3.0, 3.5))))
+        assertSame(real, real.withEstimatedWordTiming())
+        val unsynced = listOf(LyricsEntry(0, "a"), LyricsEntry(0, "b"))
+        assertSame(unsynced, unsynced.withEstimatedWordTiming())
+    }
+
+    @Test
+    fun combiningMarkScriptsSplitOnWhitespaceAndKeepEachWordIntact() {
+        val line = "ನಾನು ನಿನ್ನ ಪ್ರೀತಿ"
+        val words = LyricsEntry(0, line).withEstimatedWords(endMs = 4_000).words!!
+        assertEquals(listOf("ನಾನು", "ನಿನ್ನ", "ಪ್ರೀತಿ"), words.map { it.text })
+        assertEquals(line, words.joinToString("") { it.text + if (it.hasTrailingSpace) " " else "" })
     }
 
     @Test

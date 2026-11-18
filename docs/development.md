@@ -403,6 +403,10 @@ Android Spotify and Apple Music library imports open the destination picker for 
 
 Last.fm and ListenBrainz login dialogs link to account registration; ListenBrainz also links to its token page.
 
+## Desktop stored playback
+
+Queue transitions and preloading prefer downloaded or cached audio, matching manual track selection, including video-type tracks. An explicit playback-client override bypasses stored audio. Video-viewer resolution still uses the explicit video request path.
+
 ## Android music widgets
 
 The music player defaults to 4x2 cells with a 250x110 dp fallback and a 2:1 preview. Shorter placements keep metadata beside the four controls when possible and drop the cover first; smaller ones use the controls-only and square variants. The minimum resize width of 240 dp keeps 48 dp touch targets and the action label. Layout selection uses available dp and font scale, with size-specific RemoteViews on Android 12+ and portrait/landscape layouts before that. Keep existing widget IDs and actions valid.

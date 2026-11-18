@@ -13,6 +13,11 @@
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!-- Version resource: unsigned binaries with no publisher/product metadata score worse in AV heuristics. -->
+    <Product>Metrolist WebView2 Login Helper</Product>
+    <Company>Metrolist</Company>
+    <Description>Sign-in window helper for Metrolist Desktop</Description>
+    <Copyright>Metrolist contributors</Copyright>
   </PropertyGroup>
 
   <ItemGroup>

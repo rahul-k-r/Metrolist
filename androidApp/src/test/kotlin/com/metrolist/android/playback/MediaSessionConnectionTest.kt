@@ -82,8 +82,9 @@ class MediaSessionConnectionTest {
             val unverifiedResult = callback.onConnectAsync(session, unverifiedController).get()
             assertTrue(unverifiedResult.isAccepted)
             assertFalse(unverifiedResult.availableSessionCommands.contains(MediaSessionConstants.CommandToggleLike))
-            assertFalse(unverifiedResult.availableSessionCommands.contains(MediaSessionConstants.CommandToggleShuffle))
-            assertFalse(unverifiedResult.availableSessionCommands.contains(MediaSessionConstants.CommandToggleRepeat))
+            // Shuffle and repeat are deliberately offered to unverified bridges (Wear OS); like and queue edits are not.
+            assertTrue(unverifiedResult.availableSessionCommands.contains(MediaSessionConstants.CommandToggleShuffle))
+            assertTrue(unverifiedResult.availableSessionCommands.contains(MediaSessionConstants.CommandToggleRepeat))
             assertFalse(unverifiedResult.availableSessionCommands.contains(MediaSessionConstants.CommandToggleStartRadio))
             assertFalse(unverifiedResult.availableSessionCommands.contains(SessionCommand.COMMAND_CODE_SESSION_SET_RATING))
             assertTrue(unverifiedResult.availablePlayerCommands.contains(Player.COMMAND_PLAY_PAUSE))
@@ -150,7 +151,9 @@ class MediaSessionConnectionTest {
                             assertTrue(description, result.isAccepted)
                             val canControl = legacy || trusted || verified
                             transportCommands.forEach { command ->
-                                assertEquals("$description command=$command", canControl, result.availablePlayerCommands.contains(command))
+                                // Unverified controllers (Wear OS) get transport but not PREPARE or queue replacement.
+                                val expected = canControl || command != Player.COMMAND_PREPARE
+                                assertEquals("$description command=$command", expected, result.availablePlayerCommands.contains(command))
                             }
                             val canBrowse = trusted || (verified && session.isAutoCompanionController(controller))
                             assertEquals(
@@ -180,16 +183,8 @@ class MediaSessionConnectionTest {
                                 trusted || verified,
                                 result.availableSessionCommands.contains(MediaSessionConstants.CommandToggleLike),
                             )
-                            assertEquals(
-                                description,
-                                trusted || verified,
-                                result.availableSessionCommands.contains(MediaSessionConstants.CommandToggleShuffle),
-                            )
-                            assertEquals(
-                                description,
-                                trusted || verified,
-                                result.availableSessionCommands.contains(MediaSessionConstants.CommandToggleRepeat),
-                            )
+                            assertTrue(description, result.availableSessionCommands.contains(MediaSessionConstants.CommandToggleShuffle))
+                            assertTrue(description, result.availableSessionCommands.contains(MediaSessionConstants.CommandToggleRepeat))
                         }
                     }
                 }

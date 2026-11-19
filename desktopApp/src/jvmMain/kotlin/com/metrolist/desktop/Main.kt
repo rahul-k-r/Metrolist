@@ -1138,8 +1138,11 @@ private fun runDesktopApp(args: Array<String>) {
         startup.appFrame.complete(Unit)
     }
 
+    // Create its snapshot states before the background init and the first composition race to do it: Compose rejects
+    // states newer than its snapshot, and PlayerState's scrobbler reads them during composition.
+    ScrobbleSessions
     applicationScope.launch(Dispatchers.IO) { ThemeUtils.observeSystemTheme() }
-    startupJob = applicationScope.launch { initializeBackend() }
+    startupJob =applicationScope.launch { initializeBackend() }
 
     application {
         if (!uiVisible) {

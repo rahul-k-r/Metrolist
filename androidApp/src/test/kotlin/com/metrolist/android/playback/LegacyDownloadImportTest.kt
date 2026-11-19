@@ -38,6 +38,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
+import org.junit.Assume.assumeFalse
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -330,6 +331,8 @@ class LegacyDownloadImportTest {
     @Test
     fun clearingCacheKeepsUnplayedSpansReadableUntilThePlayerCloses() =
         withLegacyCaches { downloads, player, _, database, manager ->
+            // Relies on unlink-while-open, which Windows doesn't allow.
+            assumeFalse(System.getProperty("os.name").startsWith("Windows"))
             database.dao().insert(SongEntity("playing", "Playing"))
             write(player, "playing", 0, 4096)
             write(player, "playing", 4096, 4096)

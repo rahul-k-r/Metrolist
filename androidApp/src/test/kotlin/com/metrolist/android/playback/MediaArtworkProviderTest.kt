@@ -31,6 +31,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
+import org.junit.Assume.assumeFalse
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -134,6 +135,8 @@ class MediaArtworkProviderTest {
     @Test
     @OptIn(DelicateCoilApi::class)
     fun fetchedArtworkRemainsReadableWhenDiskCachingIsDisabledOrAbsent() {
+        // Relies on unlink-while-open, which Windows doesn't allow.
+        assumeFalse(System.getProperty("os.name").startsWith("Windows"))
         val context = RuntimeEnvironment.getApplication()
         val directory = Files.createTempDirectory("media-artwork-disabled").toFile()
         val disabledCache = ResizableImageDiskCache(directory.toOkioPath(), 0)

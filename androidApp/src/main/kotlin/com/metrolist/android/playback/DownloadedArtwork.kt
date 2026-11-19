@@ -74,7 +74,11 @@ internal class DownloadedArtwork(
                                     "Could not encode download artwork"
                                 }
                             }
-                            check(temporary.renameTo(destination)) { "Could not publish download artwork" }
+                            // renameTo won't replace an existing (empty) file on every filesystem.
+                            if (!temporary.renameTo(destination)) {
+                                destination.delete()
+                                check(temporary.renameTo(destination)) { "Could not publish download artwork" }
+                            }
                             true
                         } finally {
                             temporary.delete()

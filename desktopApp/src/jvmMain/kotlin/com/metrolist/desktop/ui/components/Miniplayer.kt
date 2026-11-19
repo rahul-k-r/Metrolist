@@ -15,7 +15,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -47,6 +46,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -61,7 +61,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -82,9 +81,11 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.WindowState
 import com.materialkolor.ktx.isLight
+import com.metrolist.desktop.state.app.AppState
 import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.state.content.ArtistState
 import com.metrolist.desktop.state.content.PlaylistAlbumState
+import com.metrolist.desktop.state.playback.DesktopPlaybackController
 import com.metrolist.desktop.state.playback.ListenTogetherState
 import com.metrolist.desktop.state.playback.PlayerState
 import com.metrolist.desktop.ui.DesktopDensityProvider
@@ -100,6 +101,7 @@ import com.metrolist.shared.generated.resources.cd_playback_position
 import com.metrolist.shared.generated.resources.close_miniplayer
 import com.metrolist.shared.generated.resources.enter_focus_mode
 import com.metrolist.shared.generated.resources.exit_focus_mode
+import com.metrolist.shared.generated.resources.floating_lyrics
 import com.metrolist.shared.generated.resources.floating_lyrics_hide_from_capture
 import com.metrolist.shared.generated.resources.floating_lyrics_translucent
 import com.metrolist.shared.generated.resources.hide_queue
@@ -117,9 +119,12 @@ import com.metrolist.shared.settings.PlayerBackgroundStyle
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.ui.components.ArtistSubtitle
 import com.metrolist.shared.ui.components.MetadataLink
+import com.metrolist.shared.ui.components.PlayerLikeShareButtons
 import com.metrolist.shared.ui.icons.MetrolistIcons
+import com.metrolist.shared.ui.playback.LocalPlaybackController
 import com.metrolist.shared.ui.utils.ArtworkBlurStyle
 import com.metrolist.shared.utils.OsUtil
+import com.metrolist.shared.utils.ShareUrls
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
 import java.awt.Cursor
@@ -134,6 +139,7 @@ internal val MiniplayerFocusSize = 300.dp
 internal val MiniplayerMinQueueHeight = 360.dp
 internal val MiniplayerMaxQueueHeight = 1000.dp
 private val MiniplayerDefaultQueueHeight = 560.dp
+private val VerticalResizeHandleHeight = 12.dp
 
 /** The window only grows vertically: the width is fixed and the height stays within what the queue list can use. */
 internal fun clampMiniplayerHeight(height: Dp): Dp = height.coerceIn(MiniplayerMinQueueHeight, MiniplayerMaxQueueHeight)
@@ -214,39 +220,53 @@ fun MiniplayerWindow() {
             }
             // The main window's own copy stops running while it is hidden in the tray, which froze the accent colours.
             UpdateArtworkTheme()
+            // This window is composed outside the main one, so the menus inside it need their own controller.
+            val playbackController = remember { DesktopPlaybackController(AppState.scope) }
             MetrolistTheme {
-                WindowVisibility(window) {
-                    val colorScheme = MaterialTheme.colorScheme
-                    val content: @Composable () -> Unit = {
-                        if (isFocusMode) {
-                            FocusModeMiniplayer(colorScheme, isNightMode, transparentWindow)
-                        } else {
-                            StandardMiniplayer(
-                                colorScheme = colorScheme,
-                                isNightMode = isNightMode,
-                                transparentWindow = transparentWindow,
-                                translucent = translucent,
-                                clickThrough = clickThrough,
-                                hideFromCapture = hideFromCapture,
-                                queueOpen = queueOpen,
-                                onToggleQueue = { showQueue = !showQueue },
-                                onResize = { dy -> queueHeight = clampMiniplayerHeight(queueHeight + dy / scale) },
-                            )
+                CompositionLocalProvider(LocalPlaybackController provides playbackController) {
+                    WindowVisibility(window) {
+                        val colorScheme = MaterialTheme.colorScheme
+                        // The drag area moves the window even for gestures a child consumed, so the queue and its resize
+                        // handle must sit outside it.
+                        val dragArea: @Composable (@Composable () -> Unit) -> Unit = { inner ->
+                            if (OsUtil.isWindows) {
+                                WindowDraggableArea { inner() }
+                            } else {
+                                WindowDragHandle(isMaximized = false, onRestoreFromMaximized = {}) { inner() }
+                            }
                         }
-                    }
-                    if (OsUtil.isWindows) {
-                        val areWeInDarkMode = remember { mutableStateOf(false) }
-                        WindowsMiniPlayerWindowFrame(
-                            onCloseRequest = { PlayerState.showMiniplayer = false },
-                            content = {
-                                areWeInDarkMode.value = !MaterialTheme.colorScheme.background.isLight()
-                                WindowDraggableArea { content() }
-                            },
-                            state = windowState,
-                            darkTheme = areWeInDarkMode.value,
-                        )
-                    } else {
-                        WindowDragHandle(isMaximized = false, onRestoreFromMaximized = {}) { content() }
+                        val content: @Composable () -> Unit = {
+                            if (isFocusMode) {
+                                dragArea { FocusModeMiniplayer(colorScheme, isNightMode, transparentWindow) }
+                            } else {
+                                StandardMiniplayer(
+                                    colorScheme = colorScheme,
+                                    isNightMode = isNightMode,
+                                    transparentWindow = transparentWindow,
+                                    translucent = translucent,
+                                    clickThrough = clickThrough,
+                                    hideFromCapture = hideFromCapture,
+                                    queueOpen = queueOpen,
+                                    onToggleQueue = { showQueue = !showQueue },
+                                    onResize = { dy -> queueHeight = clampMiniplayerHeight(queueHeight + dy / scale) },
+                                    dragArea = dragArea,
+                                )
+                            }
+                        }
+                        if (OsUtil.isWindows) {
+                            val areWeInDarkMode = remember { mutableStateOf(false) }
+                            WindowsMiniPlayerWindowFrame(
+                                onCloseRequest = { PlayerState.showMiniplayer = false },
+                                content = {
+                                    areWeInDarkMode.value = !MaterialTheme.colorScheme.background.isLight()
+                                    content()
+                                },
+                                state = windowState,
+                                darkTheme = areWeInDarkMode.value,
+                            )
+                        } else {
+                            content()
+                        }
                     }
                 }
             }
@@ -261,10 +281,13 @@ private fun MiniplayerHeader(
     hideFromCapture: Boolean,
     queueOpen: Boolean,
     onToggleQueue: () -> Unit,
+    visible: Boolean,
 ) {
     val tint = colorScheme.onSurfaceVariant
+    // Stays laid out and clickable; it is only invisible while the pointer is away from the window.
+    val alpha by animateFloatAsState(if (visible) 1f else 0f)
     Row(
-        modifier = Modifier.fillMaxWidth().height(36.dp),
+        modifier = Modifier.fillMaxWidth().height(36.dp).graphicsLayer { this.alpha = alpha },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.End,
     ) {
@@ -290,6 +313,13 @@ private fun MiniplayerHeader(
             tint = tint,
             active = false,
             onClick = { Settings.shared.miniplayerFocusMode = true },
+        )
+        HeaderIcon(
+            icon = MetrolistIcons.Outlined.Lyrics,
+            description = stringResource(Res.string.floating_lyrics),
+            tint = tint,
+            active = PlayerState.showFloatingLyrics,
+            onClick = { PlayerState.showFloatingLyrics = !PlayerState.showFloatingLyrics },
         )
         HeaderIcon(
             icon = MetrolistIcons.AutoMirrored.Outlined.QueueMusic,
@@ -321,7 +351,7 @@ private fun VerticalResizeHandle(
         modifier =
             modifier
                 .fillMaxWidth()
-                .height(12.dp)
+                .height(VerticalResizeHandleHeight)
                 .pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.N_RESIZE_CURSOR)))
                 .pointerInput(density) {
                     detectDragGestures { change, drag ->
@@ -331,7 +361,13 @@ private fun VerticalResizeHandle(
                 },
         contentAlignment = Alignment.Center,
     ) {
-        Box(Modifier.width(40.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(color.copy(alpha = 0.4f)))
+        Box(
+            Modifier
+                .width(40.dp)
+                .height(4.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(color.copy(alpha = 0.4f)),
+        )
     }
 }
 
@@ -346,13 +382,19 @@ private fun StandardMiniplayer(
     queueOpen: Boolean,
     onToggleQueue: () -> Unit,
     onResize: (Dp) -> Unit,
+    dragArea: @Composable (@Composable () -> Unit) -> Unit,
 ) {
     val isListenTogetherGuest = ListenTogetherState.isListenTogetherGuest()
     val baseColor = if (isNightMode) Color.Black else colorScheme.surfaceContainerHigh
+    val hoverSource = remember { MutableInteractionSource() }
+    val hovered by hoverSource.collectIsHoveredAsState()
+    // The variant colour washes out over a light desktop once the card is see-through.
+    val subtitleColor = if (translucent) colorScheme.onSurface else colorScheme.onSurfaceVariant
     Surface(
         modifier =
             Modifier
-                .fillMaxSize(),
+                .fillMaxSize()
+                .hoverable(hoverSource),
         shape = RoundedCornerShape(if (transparentWindow) 16.dp else 0.dp),
         color = if (translucent) baseColor.copy(alpha = FLOATING_LYRICS_TRANSLUCENT_BACKGROUND_ALPHA) else baseColor,
         border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.3f)),
@@ -404,113 +446,127 @@ private fun StandardMiniplayer(
                         .graphicsLayer { alpha = if (translucent) FLOATING_LYRICS_TRANSLUCENT_TEXT_ALPHA else 1f }
                         .padding(start = 16.dp, end = 16.dp),
             ) {
-                // While clicks pass through the buttons could not be used anyway.
-                if (!clickThrough) {
-                    MiniplayerHeader(colorScheme, translucent, hideFromCapture, queueOpen, onToggleQueue)
-                } else {
-                    Spacer(Modifier.height(36.dp))
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    AsyncImage(
-                        url = PlayerState.currentArtworkUrl ?: "",
-                        artworkPreview = PlayerState.artworkPreview,
-                        modifier = Modifier.songThumbSize(PlayerState.currentTrack, 80.dp).clip(RoundedCornerShape(4.dp)),
-                        shape = RoundedCornerShape(4.dp),
-                        contentScale = if (Settings.shared.cropAlbumArt) ContentScale.Crop else ContentScale.Fit,
-                    )
-
-                    Spacer(Modifier.width(16.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = PlayerState.currentTrack?.title ?: stringResource(Res.string.no_track_playing),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .basicMarquee(
-                                        iterations = 1,
-                                        initialDelayMillis = 10000,
-                                        velocity = 30.dp,
-                                    ),
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            val artists = PlayerState.currentTrack?.artists ?: emptyList()
-                            ArtistSubtitle(
-                                artists = artists,
-                                onArtistClick = { artistId ->
-                                    ArtistState.fetchArtistData(artistId)
-                                    ComposeTrayManager.showWindow()
-                                },
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = colorScheme.onSurfaceVariant,
-                                modifier =
-                                    Modifier
-                                        .weight(1f, fill = false)
-                                        .basicMarquee(
-                                            iterations = 1,
-                                            initialDelayMillis = 10000,
-                                            velocity = 30.dp,
-                                        ),
+                dragArea {
+                    Column {
+                        // While clicks pass through the buttons could not be used anyway.
+                        if (!clickThrough) {
+                            MiniplayerHeader(colorScheme, translucent, hideFromCapture, queueOpen, onToggleQueue, visible = hovered)
+                        } else {
+                            Spacer(Modifier.height(36.dp))
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            AsyncImage(
+                                url = PlayerState.currentArtworkUrl ?: "",
+                                artworkPreview = PlayerState.artworkPreview,
+                                modifier = Modifier.songThumbSize(PlayerState.currentTrack, 80.dp).clip(RoundedCornerShape(4.dp)),
+                                shape = RoundedCornerShape(4.dp),
+                                contentScale = if (Settings.shared.cropAlbumArt) ContentScale.Crop else ContentScale.Fit,
                             )
-                            val album = PlayerState.currentTrack?.album
-                            if (album != null && album.name.isNotBlank()) {
+
+                            Spacer(Modifier.width(16.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    " • ",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = colorScheme.onSurfaceVariant,
-                                )
-                                MetadataLink(
-                                    text = album.name,
-                                    id = album.id,
-                                    onClick = { albumId ->
-                                        PlaylistAlbumState.fetchAlbumData(albumId)
-                                        ComposeTrayManager.showWindow()
-                                    },
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = colorScheme.onSurfaceVariant,
+                                    text = PlayerState.currentTrack?.title ?: stringResource(Res.string.no_track_playing),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                     modifier =
                                         Modifier
-                                            .weight(1f, fill = false)
+                                            .fillMaxWidth()
                                             .basicMarquee(
                                                 iterations = 1,
                                                 initialDelayMillis = 10000,
                                                 velocity = 30.dp,
                                             ),
                                 )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    val artists = PlayerState.currentTrack?.artists ?: emptyList()
+                                    ArtistSubtitle(
+                                        artists = artists,
+                                        onArtistClick = { artistId ->
+                                            ArtistState.fetchArtistData(artistId)
+                                            ComposeTrayManager.showWindow()
+                                        },
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = subtitleColor,
+                                        modifier =
+                                            Modifier
+                                                .weight(1f, fill = false)
+                                                .basicMarquee(
+                                                    iterations = 1,
+                                                    initialDelayMillis = 10000,
+                                                    velocity = 30.dp,
+                                                ),
+                                    )
+                                    val album = PlayerState.currentTrack?.album
+                                    if (album != null && album.name.isNotBlank()) {
+                                        Text(
+                                            " • ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = subtitleColor,
+                                        )
+                                        MetadataLink(
+                                            text = album.name,
+                                            id = album.id,
+                                            onClick = { albumId ->
+                                                PlaylistAlbumState.fetchAlbumData(albumId)
+                                                ComposeTrayManager.showWindow()
+                                            },
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = subtitleColor,
+                                            modifier =
+                                                Modifier
+                                                    .weight(1f, fill = false)
+                                                    .basicMarquee(
+                                                        iterations = 1,
+                                                        initialDelayMillis = 10000,
+                                                        velocity = 30.dp,
+                                                    ),
+                                        )
+                                    }
+                                }
+
+                                if (!isListenTogetherGuest) {
+                                    Spacer(Modifier.height(8.dp))
+
+                                    PlaybackControlsWithActions(colorScheme)
+                                }
                             }
                         }
 
-                        if (!isListenTogetherGuest) {
-                            Spacer(Modifier.height(8.dp))
-
-                            PlaybackControls(colorScheme)
-                        }
+                        MiniplayerProgress(
+                            colorScheme = colorScheme,
+                            enabled = !isListenTogetherGuest,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp),
+                        )
                     }
                 }
 
-                MiniplayerProgress(
-                    colorScheme = colorScheme,
-                    enabled = !isListenTogetherGuest,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                )
-
-                if (queueOpen && !clickThrough) {
+                if (queueOpen) {
                     Box(modifier = Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(12.dp))) {
-                        DesktopQueueContent(onDismiss = onToggleQueue, colorScheme = colorScheme)
+                        DesktopQueueContent(
+                            onDismiss = onToggleQueue,
+                            colorScheme = colorScheme,
+                            containerAlpha = if (translucent) FLOATING_LYRICS_TRANSLUCENT_BACKGROUND_ALPHA else 1f,
+                            compact = true,
+                        )
                     }
-                    VerticalResizeHandle(onResize = onResize, color = colorScheme.onSurfaceVariant)
+                    // Keep the handle's height while click-through so the queue does not sit on the window edge.
+                    if (clickThrough) {
+                        Spacer(Modifier.height(VerticalResizeHandleHeight))
+                    } else {
+                        VerticalResizeHandle(onResize = onResize, color = colorScheme.onSurfaceVariant)
+                    }
                 }
             }
         }
@@ -526,16 +582,13 @@ private fun FocusModeMiniplayer(
 ) {
     val isListenTogetherGuest = ListenTogetherState.isListenTogetherGuest()
     val interactionSource = remember { MutableInteractionSource() }
-    val isHovered by interactionSource.collectIsHoveredAsState()
-    var hasFocus by remember { mutableStateOf(false) }
-    val showControls = isHovered || hasFocus
+    // Hover only: a click leaves the surface focused, which used to pin the controls open.
+    val showControls by interactionSource.collectIsHoveredAsState()
     Surface(
         modifier =
             Modifier
                 .fillMaxSize()
-                .hoverable(interactionSource)
-                .onFocusChanged { hasFocus = it.hasFocus }
-                .focusable(interactionSource = interactionSource),
+                .hoverable(interactionSource),
         shape = RoundedCornerShape(if (transparentWindow) 12.dp else 0.dp),
         color = Color.Transparent,
         border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.2f)),
@@ -851,6 +904,24 @@ private fun PlaybackControls(colorScheme: ColorScheme) {
                 ),
             modifier = Modifier.fillMaxHeight().weight(nextButtonWeight),
         ) { Icon(MetrolistIcons.Rounded.SkipNext, stringResource(Res.string.next), modifier = Modifier.size(20.dp)) }
+    }
+}
+
+@Composable
+private fun PlaybackControlsWithActions(colorScheme: ColorScheme) {
+    val track = PlayerState.currentTrack
+    val shareTrack = { track?.let { AppState.shareLink(ShareUrls.song(it.id), it.title) } }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        PlaybackControls(colorScheme)
+        Spacer(Modifier.width(8.dp))
+        PlayerLikeShareButtons(
+            isLiked = track?.let { PlayerState.isLiked(it.id) } == true,
+            onLikeClick = { track?.let { PlayerState.toggleLike(it) } },
+            onShareClick = { shareTrack() },
+            onAltShareClick = { shareTrack() },
+            groupHeight = 40.dp,
+            iconSize = 18.dp,
+        )
     }
 }
 

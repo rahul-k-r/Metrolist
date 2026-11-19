@@ -15,32 +15,32 @@ import com.metrolist.desktop.deviceconnect.DesktopDeviceConnect
 import com.metrolist.desktop.state.app.DesktopNavigation
 import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.state.content.LibraryContentState
+import com.metrolist.desktop.state.playback.ListenTogetherState
+import com.metrolist.desktop.state.playback.PlayerState
 import com.metrolist.shared.deviceconnect.deviceTargets
+import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.add_to_queue
-import com.metrolist.shared.generated.resources.connected_devices
-import com.metrolist.shared.generated.resources.this_device
 import com.metrolist.shared.generated.resources.clear_queue
+import com.metrolist.shared.generated.resources.connected_devices
+import com.metrolist.shared.generated.resources.play_next
+import com.metrolist.shared.generated.resources.playlists
 import com.metrolist.shared.generated.resources.repeat_mode_all
 import com.metrolist.shared.generated.resources.repeat_mode_off
 import com.metrolist.shared.generated.resources.repeat_mode_one
 import com.metrolist.shared.generated.resources.restart_queue
-import com.metrolist.shared.generated.resources.tray_play_mode
 import com.metrolist.shared.generated.resources.shuffle
-import com.metrolist.shared.model.RepeatMode
-import com.metrolist.shared.generated.resources.play_next
-import com.metrolist.shared.generated.resources.playlists
-import com.metrolist.shared.generated.resources.tray_recently_played
-import kotlinx.coroutines.flow.flowOf
-import com.metrolist.desktop.state.playback.ListenTogetherState
-import com.metrolist.desktop.state.playback.PlayerState
-import com.metrolist.shared.generated.resources.Res
+import com.metrolist.shared.generated.resources.this_device
 import com.metrolist.shared.generated.resources.tray_by
+import com.metrolist.shared.generated.resources.tray_hide_floating_lyrics
+import com.metrolist.shared.generated.resources.tray_hide_miniplayer
 import com.metrolist.shared.generated.resources.tray_hide_window
 import com.metrolist.shared.generated.resources.tray_next_track
 import com.metrolist.shared.generated.resources.tray_pause
 import com.metrolist.shared.generated.resources.tray_play
+import com.metrolist.shared.generated.resources.tray_play_mode
 import com.metrolist.shared.generated.resources.tray_previous_track
 import com.metrolist.shared.generated.resources.tray_quit_metrolist
+import com.metrolist.shared.generated.resources.tray_recently_played
 import com.metrolist.shared.generated.resources.tray_settings
 import com.metrolist.shared.generated.resources.tray_show_floating_lyrics
 import com.metrolist.shared.generated.resources.tray_show_miniplayer
@@ -49,6 +49,7 @@ import com.metrolist.shared.generated.resources.tray_tooltip_paused
 import com.metrolist.shared.generated.resources.tray_tooltip_playing
 import com.metrolist.shared.generated.resources.tray_unknown
 import com.metrolist.shared.generated.resources.tray_unknown_title
+import com.metrolist.shared.model.RepeatMode
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.settings.displayName
 import com.metrolist.shared.ui.navigation.Screen
@@ -58,6 +59,7 @@ import dev.nucleusframework.composenativetray.tray.api.Tray
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.jetbrains.compose.resources.stringResource
@@ -207,6 +209,12 @@ object ComposeTrayManager {
         val strShowWindow = stringResource(Res.string.tray_show_window)
         val strShowMiniplayer = stringResource(Res.string.tray_show_miniplayer)
         val strShowFloatingLyrics = stringResource(Res.string.tray_show_floating_lyrics)
+        val strHideMiniplayer = stringResource(Res.string.tray_hide_miniplayer)
+        val strHideFloatingLyrics = stringResource(Res.string.tray_hide_floating_lyrics)
+        // The menu lambda is not a composable scope, so these are read here for the labels to follow the real state.
+        val mainWindowShown = isWindowVisible.value
+        val miniplayerOpen = PlayerState.showMiniplayer
+        val floatingLyricsOpen = PlayerState.showFloatingLyrics
         val strSettings = stringResource(Res.string.tray_settings)
         val strQuitMetrolist = stringResource(Res.string.tray_quit_metrolist)
         val strTrayByTemplate = stringResource(Res.string.tray_by)
@@ -220,7 +228,11 @@ object ComposeTrayManager {
         var playlistMode by remember { mutableStateOf(Settings.shared.desktopTrayPlaylistMode) }
         val shuffleEnabled = PlayerState.shuffleEnabled
         val repeatMode = PlayerState.repeatMode
-        val hasQueue = PlayerState.queue.items.collectAsState().value.isNotEmpty()
+        val hasQueue =
+            PlayerState.queue.items
+                .collectAsState()
+                .value
+                .isNotEmpty()
         val strShuffle = stringResource(Res.string.shuffle)
         val strRepeatOff = stringResource(Res.string.repeat_mode_off)
         val strRepeatAll = stringResource(Res.string.repeat_mode_all)
@@ -230,7 +242,8 @@ object ComposeTrayManager {
         val strThisDevice = stringResource(Res.string.this_device)
         // Re-read on every Device Connect change, so the submenu follows peers coming and going and transfers.
         val deviceState by DesktopDeviceConnect.manager.state.collectAsState()
-        val syncState by DesktopDeviceConnect.manager.remote.state.collectAsState()
+        val syncState by DesktopDeviceConnect.manager.remote.state
+            .collectAsState()
         val deviceTargets =
             deviceTargets(deviceState.localDeviceId, syncState.sessionId != null, syncState.targetId, deviceState.peers)
         val strRestartQueue = stringResource(Res.string.restart_queue)
@@ -388,18 +401,16 @@ object ComposeTrayManager {
                 }
                 if (recentSongs.isNotEmpty() || libraryPlaylists.isNotEmpty()) Divider()
 
-                Item(
-                    label = if (isWindowVisible.value) strHideWindow else strShowWindow,
-                ) {
+                Item(label = if (mainWindowShown) strHideWindow else strShowWindow) {
                     toggleWindow()
                 }
 
-                Item(label = strShowMiniplayer) {
-                    PlayerState.showMiniplayer = true
+                Item(label = if (miniplayerOpen) strHideMiniplayer else strShowMiniplayer) {
+                    PlayerState.showMiniplayer = !PlayerState.showMiniplayer
                 }
 
-                Item(label = strShowFloatingLyrics) {
-                    PlayerState.showFloatingLyrics = true
+                Item(label = if (floatingLyricsOpen) strHideFloatingLyrics else strShowFloatingLyrics) {
+                    PlayerState.showFloatingLyrics = !PlayerState.showFloatingLyrics
                 }
 
                 Divider()

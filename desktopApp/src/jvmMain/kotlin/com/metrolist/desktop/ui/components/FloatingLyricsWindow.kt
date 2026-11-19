@@ -7,10 +7,14 @@
 
 package com.metrolist.desktop.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.TooltipPlacement
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,6 +44,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -66,6 +71,7 @@ import com.metrolist.shared.generated.resources.floating_lyrics
 import com.metrolist.shared.generated.resources.floating_lyrics_hide_from_capture
 import com.metrolist.shared.generated.resources.floating_lyrics_translucent
 import com.metrolist.shared.generated.resources.loading
+import com.metrolist.shared.generated.resources.miniplayer
 import com.metrolist.shared.generated.resources.next
 import com.metrolist.shared.generated.resources.pause
 import com.metrolist.shared.generated.resources.play
@@ -116,7 +122,9 @@ fun FloatingLyricsWindow() {
         remember {
             FloatingLyricsBounds.parse(Settings.shared.floatingLyricsBounds)?.takeIf { bounds ->
                 runCatching {
-                    bounds.isReachableOn(GraphicsEnvironment.getLocalGraphicsEnvironment().screenDevices.map { it.defaultConfiguration.bounds })
+                    bounds.isReachableOn(
+                        GraphicsEnvironment.getLocalGraphicsEnvironment().screenDevices.map { it.defaultConfiguration.bounds },
+                    )
                 }.getOrDefault(false)
             }
         }
@@ -169,8 +177,10 @@ fun FloatingLyricsWindow() {
                     val colors = MaterialTheme.colorScheme
                     val contentColor = colors.onSurface.copy(alpha = if (translucent) FLOATING_LYRICS_TRANSLUCENT_TEXT_ALPHA else 1f)
                     val background = colors.surface.copy(alpha = if (translucent) FLOATING_LYRICS_TRANSLUCENT_BACKGROUND_ALPHA else 1f)
+                    val hoverSource = remember { MutableInteractionSource() }
+                    val hovered by hoverSource.collectIsHoveredAsState()
                     Surface(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize().hoverable(hoverSource),
                         color = background,
                         shape = RoundedCornerShape(if (canBeTranslucent) 12.dp else 0.dp),
                     ) {
@@ -187,6 +197,7 @@ fun FloatingLyricsWindow() {
                                                 hideFromCapture = hideFromCapture,
                                                 translucent = translucent,
                                                 canBeTranslucent = canBeTranslucent,
+                                                visible = hovered,
                                             )
                                         }
                                         Box(modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)) {
@@ -227,9 +238,17 @@ private fun FloatingLyricsHeader(
     hideFromCapture: Boolean,
     translucent: Boolean,
     canBeTranslucent: Boolean,
+    visible: Boolean,
 ) {
+    // Stays laid out and clickable; it is only invisible while the pointer is away from the window.
+    val alpha by animateFloatAsState(if (visible) 1f else 0f)
     Row(
-        modifier = Modifier.fillMaxWidth().height(36.dp).padding(horizontal = 4.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(36.dp)
+                .padding(horizontal = 4.dp)
+                .graphicsLayer { this.alpha = alpha },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.End,
     ) {
@@ -249,6 +268,13 @@ private fun FloatingLyricsHeader(
                 onClick = { Settings.shared.floatingLyricsTranslucent = !translucent },
             )
         }
+        HeaderIcon(
+            icon = MetrolistIcons.Filled.PictureInPicture,
+            description = stringResource(Res.string.miniplayer),
+            tint = contentColor,
+            active = PlayerState.showMiniplayer,
+            onClick = { PlayerState.showMiniplayer = !PlayerState.showMiniplayer },
+        )
         HeaderIcon(
             icon = MetrolistIcons.Outlined.Close,
             description = stringResource(Res.string.close),
@@ -274,7 +300,11 @@ internal fun HeaderIcon(
                 color = MaterialTheme.colorScheme.inverseSurface,
                 contentColor = MaterialTheme.colorScheme.inverseOnSurface,
             ) {
-                Text(description, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                Text(
+                    description,
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                )
             }
         },
         delayMillis = 400,

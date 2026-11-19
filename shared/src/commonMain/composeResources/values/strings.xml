@@ -4471,6 +4471,7 @@
     <string name="desktop_start_with_system_desc">Launch Metrolist when you sign in to Windows (installed app only)</string>
     <!-- Translators: Imperative action label for show miniplayer in the desktop system tray. -->
     <string name="tray_show_miniplayer">Show miniplayer</string>
+    <string name="tray_hide_miniplayer">Hide miniplayer</string>
     <!-- Translators: Submenu title in the desktop system tray listing the songs played most recently. -->
     <string name="tray_recently_played">Recently played</string>
     <string name="tray_open_playlist">Open playlist</string>
@@ -4820,6 +4821,7 @@
     <string name="open_miniplayer">Open miniplayer</string>
     <string name="floating_lyrics">Floating lyrics</string>
     <string name="tray_show_floating_lyrics">Show floating lyrics</string>
+    <string name="tray_hide_floating_lyrics">Hide floating lyrics</string>
     <string name="floating_lyrics_hide_from_capture">Hide from screen recording</string>
     <string name="floating_lyrics_translucent">Translucent mode</string>
     <string name="floating_lyrics_shortcut_title">Click-through shortcut</string>

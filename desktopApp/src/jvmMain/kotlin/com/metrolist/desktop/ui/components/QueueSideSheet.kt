@@ -5,9 +5,12 @@ package com.metrolist.desktop.ui.components
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
@@ -33,6 +36,11 @@ import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.queue
 import com.metrolist.shared.generated.resources.remove_from_queue
 import com.metrolist.shared.generated.resources.removed_from_queue
+import com.metrolist.shared.generated.resources.repeat_mode_all
+import com.metrolist.shared.generated.resources.repeat_mode_off
+import com.metrolist.shared.generated.resources.repeat_mode_one
+import com.metrolist.shared.generated.resources.shuffle
+import com.metrolist.shared.generated.resources.sleep_timer
 import com.metrolist.shared.generated.resources.undo
 import com.metrolist.shared.model.RepeatMode
 import com.metrolist.shared.model.SongItem
@@ -43,6 +51,7 @@ import com.metrolist.shared.settings.displayName
 import com.metrolist.shared.state.SongLikeState
 import com.metrolist.shared.state.SongMetadataState
 import com.metrolist.shared.ui.components.PopupVisibility
+import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.player.PlaylistInfo
 import com.metrolist.shared.ui.player.QueueEvent
 import com.metrolist.shared.ui.player.QueueScreen
@@ -58,6 +67,9 @@ internal fun DesktopQueueContent(
     onDismiss: () -> Unit,
     colorScheme: ColorScheme = MaterialTheme.colorScheme,
     modifier: Modifier = Modifier,
+    containerAlpha: Float = 1f,
+    // The miniplayer carries shuffle and repeat on its playback row, so the queue drops its floating pill.
+    compact: Boolean = false,
 ) {
     val queueState by PlayerState.queue.state.collectAsState()
     val downloadStates by DownloadManager.downloadStates.collectAsState()
@@ -147,7 +159,7 @@ internal fun DesktopQueueContent(
     Surface(
         modifier = modifier.fillMaxHeight(),
         shape = RoundedCornerShape(16.dp),
-        color = colorScheme.surface,
+        color = colorScheme.surface.copy(alpha = containerAlpha),
         tonalElevation = 1.dp,
     ) {
         Box(Modifier.fillMaxSize()) {
@@ -176,6 +188,44 @@ internal fun DesktopQueueContent(
                     ),
                 isListenTogetherGuest = isListenTogetherGuest,
                 isDesktopPanel = true,
+                showControlToolbar = !compact,
+                bottomFade = !compact,
+                headerActions =
+                    if (compact) {
+                        {
+                            val shuffleOn = PlayerState.shuffleEnabled
+                            val repeatMode = PlayerState.repeatMode
+                            IconButton(onClick = { showSleepDialog = true }, modifier = Modifier.size(40.dp)) {
+                                Icon(
+                                    MetrolistIcons.Outlined.Bedtime,
+                                    stringResource(Res.string.sleep_timer),
+                                    tint = colorScheme.onSurface,
+                                )
+                            }
+                            IconButton(onClick = { PlayerState.toggleShuffle() }, modifier = Modifier.size(40.dp)) {
+                                Icon(
+                                    MetrolistIcons.Rounded.Shuffle,
+                                    stringResource(Res.string.shuffle),
+                                    tint = if (shuffleOn) colorScheme.primary else colorScheme.onSurface,
+                                )
+                            }
+                            IconButton(onClick = { PlayerState.cycleRepeatMode() }, modifier = Modifier.size(40.dp)) {
+                                Icon(
+                                    if (repeatMode == RepeatMode.ONE) MetrolistIcons.Rounded.RepeatOne else MetrolistIcons.Rounded.Repeat,
+                                    stringResource(
+                                        when (repeatMode) {
+                                            RepeatMode.OFF -> Res.string.repeat_mode_off
+                                            RepeatMode.ALL -> Res.string.repeat_mode_all
+                                            RepeatMode.ONE -> Res.string.repeat_mode_one
+                                        },
+                                    ),
+                                    tint = if (repeatMode == RepeatMode.OFF) colorScheme.onSurface else colorScheme.primary,
+                                )
+                            }
+                        }
+                    } else {
+                        {}
+                    },
                 onDismiss = onDismiss,
                 backHandlerEnabled = false,
                 reorderEnabled = !isQueueLocked,
@@ -247,7 +297,8 @@ internal fun DesktopQueueContent(
                                 queueState.entries
                                     .withIndex()
                                     .filter { (index, entry) ->
-                                        entry.key in selectedEntryKeys && canRemoveQueueEntry(index, queueState.currentIndex, isListenTogetherGuest)
+                                        entry.key in selectedEntryKeys &&
+                                            canRemoveQueueEntry(index, queueState.currentIndex, isListenTogetherGuest)
                                     }.mapTo(mutableSetOf()) { it.index }
                             PlayerState.removeQueueItems(indices)?.let { pendingRemoval = it }
                             selectedEntryKeys = emptySet()

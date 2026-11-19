@@ -973,27 +973,13 @@ fun FrameWindowScope.WindowsMiniPlayerWindowFrame(
         window.findSkiaLayer()?.transparency = true
     }
 
-    val paddingInset = remember { MutableWindowInsets() }
-    val maxButtonRect = remember { mutableStateOf(Rect.Zero) }
-    val minButtonRect = remember { mutableStateOf(Rect.Zero) }
-    val closeButtonRect = remember { mutableStateOf(Rect.Zero) }
-    val captionBarRect = remember { mutableStateOf(Rect.Zero) }
-    val layoutHitTestOwner = rememberLayoutHitTestOwner()
-    val contentPaddingInset = remember { MutableWindowInsets() }
-
-    val procedure =
-        remember(window) {
-            ComposeWindowProcedure(
-                window = window,
-                hitTest = { x, y ->
-                    HTCLIENT
-                },
-                onWindowInsetUpdate = { paddingInset.insets = it },
-            )
-        }
-
+    // No ComposeWindowProcedure here: it extends the DWM frame into the client area and applies a Mica backdrop, which
+    // paints an opaque sheet behind the window and defeats the transparent (and translucent) miniplayer.
     LaunchedEffect(window) {
-        val hwnd = procedure.windowHandle
+        val handle = window.windowHandle
+        // Without a peer there is nothing to restyle, and a null handle would make the calls below silent no-ops.
+        if (handle == 0L) return@LaunchedEffect
+        val hwnd = HWND(Pointer(handle))
         val user32 = User32Extend.instance ?: return@LaunchedEffect
 
         val wsExToolWindow = 0x00000080
@@ -1019,13 +1005,7 @@ fun FrameWindowScope.WindowsMiniPlayerWindowFrame(
         user32.SetWindowLong(hwnd, WinUser.GWL_STYLE, newStyle)
     }
 
-    Box(
-        modifier =
-            Modifier
-                .windowInsetsPadding(if (state.placement == WindowPlacement.Maximized) paddingInset else WindowInsets()),
-    ) {
-        content()
-    }
+    Box { content() }
 }
 
 object IconResources {

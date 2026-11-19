@@ -378,6 +378,10 @@ fun QueueScreen(
     session: QueueSession? = null,
     isDesktopPanel: Boolean = false,
     headerActions: @Composable RowScope.() -> Unit = {},
+    // Hosts that surface sleep timer, shuffle and repeat elsewhere hide the floating pill; selection actions still use it.
+    showControlToolbar: Boolean = true,
+    // The fade over the bottom of the list reserves room for the floating toolbar; hosts without one skip it.
+    bottomFade: Boolean = true,
 ) {
     val lazyListState = session?.listState ?: rememberLazyListState()
     val hapticManager = rememberMetrolistHaptics()
@@ -631,7 +635,7 @@ fun QueueScreen(
                     val listModifier =
                         baseListModifier.queueVerticalBlur(
                             blurHeight = 95.dp + navigationBarBottomPadding,
-                            enabled = !isTv && !hasSelection,
+                            enabled = !isTv && !hasSelection && bottomFade,
                         )
 
                     DragScrollableColumn(
@@ -892,7 +896,7 @@ fun QueueScreen(
             )
         }
 
-        if (!isTv && (hasSelection || canControlPlayback)) {
+        if (!isTv && (hasSelection || (canControlPlayback && showControlToolbar))) {
             QueueBottomToolbar(
                 isShuffleOn = state.isShuffleOn,
                 repeatMode = state.repeatMode,

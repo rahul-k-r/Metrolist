@@ -2,6 +2,7 @@ package com.metrolist.android.playback
 
 import android.net.Uri
 import android.os.Looper
+import android.view.KeyEvent
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -58,6 +59,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
@@ -85,6 +87,16 @@ private fun SongItem.toMediaItem(
                 .setArtworkUri(artworkUri(thumbnail))
                 .build(),
         ).build()
+
+/**
+ * A multipoint headset answers a "playing" phone that streams no audio with a bare Pause. While this device only
+ * follows another one that Pause would be forwarded to the real player, so it is dropped here. Play/pause toggles and
+ * the notification's own controls are unaffected.
+ */
+internal fun isFollowerHeadsetPause(
+    following: Boolean,
+    keyCode: Int,
+): Boolean = following && keyCode == KeyEvent.KEYCODE_MEDIA_PAUSE
 
 internal fun setMediaSessionRating(
     song: SongItem?,
@@ -463,6 +475,18 @@ class MediaSessionPlayer(
                 }
         }
         scope.launch {
+            // The first emission is the current value, not a change.
+            deviceConnectFollowingChanges.distinctUntilChanged().drop(1).collect {
+                // A volume set while following another device must not carry over to the next one.
+                followingVolume = null
+                listeners.forEach { listener ->
+                    listener.onDeviceInfoChanged(getDeviceInfo())
+                    listener.onDeviceVolumeChanged(getDeviceVolume(), false)
+                    listener.onAvailableCommandsChanged(getAvailableCommands())
+                }
+            }
+        }
+        scope.launch {
             musicPlayer.currentSong
                 .map { it?.thumbnail }
                 .distinctUntilChanged()
@@ -663,11 +687,10 @@ class MediaSessionPlayer(
         if (playWhenReady) play() else pause()
     }
 
-    // While this device only mirrors another one it makes no sound. Saying "playing" to the system makes a multipoint
-    // headset treat the phone as an active source and pause the device that really is playing (or pause us).
-    // The app's own progress and lyrics read the music player directly and are unaffected.
-    override fun getPlayWhenReady(): Boolean =
-        !isDeviceConnectFollowing() && (remotePlaybackState?.value?.takeIf { it.isConnected }?.isPlaying ?: musicPlayer.wantsPlayback)
+    // The real state is always reported so the notification controls the device that is playing. While mirroring, the
+    // session is declared remote (see getDeviceInfo) so it does not take Android's media-button slot, which is what the
+    // Bluetooth stack reads when a multipoint headset decides which source is active.
+    override fun getPlayWhenReady(): Boolean = remotePlaybackState?.value?.takeIf { it.isConnected }?.isPlaying ?: musicPlayer.wantsPlayback
 
     override fun setRepeatMode(repeatMode: Int) {
         if (isPlaybackLockedProvider()) return
@@ -821,7 +844,7 @@ class MediaSessionPlayer(
     override fun getCurrentCues(): CueGroup = CueGroup.EMPTY_TIME_ZERO
 
     override fun getDeviceInfo(): DeviceInfo =
-        if (remotePlaybackState?.value?.isConnected == true) {
+        if (remotePlaybackState?.value?.isConnected == true || isDeviceConnectFollowing()) {
             DeviceInfo
                 .Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE)
                 .setMinVolume(0)
@@ -831,16 +854,31 @@ class MediaSessionPlayer(
             DeviceInfo.UNKNOWN
         }
 
-    override fun getDeviceVolume(): Int = ((remotePlaybackState?.value?.volume ?: 0f) * 100).toInt().coerceIn(0, 100)
+    // The mirrored device's volume is not reported back, so the last value set from here stands in for it.
+    private var followingVolume: Float? = null
 
-    override fun isDeviceMuted(): Boolean = remotePlaybackState?.value?.isConnected == true && getDeviceVolume() == 0
+    override fun getDeviceVolume(): Int {
+        val remote = remotePlaybackState?.value?.takeIf { it.isConnected }
+        val volume = if (remote == null && isDeviceConnectFollowing()) followingVolume ?: musicPlayer.volume.value else remote?.volume ?: 0f
+        return (volume * 100).toInt().coerceIn(0, 100)
+    }
+
+    override fun isDeviceMuted(): Boolean =
+        (remotePlaybackState?.value?.isConnected == true || isDeviceConnectFollowing()) && getDeviceVolume() == 0
 
     override fun setDeviceVolume(
         volume: Int,
         flags: Int,
     ) {
-        if (remotePlaybackState?.value?.isConnected != true) return
         val normalized = volume.coerceIn(0, 100) / 100f
+        if (remotePlaybackState?.value?.isConnected != true) {
+            if (isDeviceConnectFollowing() && interceptDeviceConnect(DcPlaybackCommand(DcPlaybackAction.VOLUME, volume = normalized))) {
+                followingVolume = normalized
+                remoteVolumeTracker.observe(normalized)
+                listeners.forEach { it.onDeviceVolumeChanged(getDeviceVolume(), isDeviceMuted) }
+            }
+            return
+        }
         remoteVolumeTracker.observe(normalized)
         onRemoteVolumeChange(normalized)
     }
@@ -988,7 +1026,7 @@ class MediaSessionPlayer(
                     Player.COMMAND_GET_TIMELINE,
                     Player.COMMAND_GET_DEVICE_VOLUME,
                 )
-        if (remotePlaybackState?.value?.isConnected == true) {
+        if (remotePlaybackState?.value?.isConnected == true || isDeviceConnectFollowing()) {
             builder.addAll(
                 Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS,
                 Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS,
@@ -1391,7 +1429,7 @@ class MediaSessionPlayer(
     override fun getPlaybackSuppressionReason(): Int = Player.PLAYBACK_SUPPRESSION_REASON_NONE
 
     override fun isPlaying(): Boolean =
-        terminalError == null && !isDeviceConnectFollowing() &&
+        terminalError == null &&
             (remotePlaybackState?.value?.takeIf { it.isConnected }?.isPlaying ?: musicPlayer.isPlaying.value)
 
     override fun getPlayerError(): PlaybackException? = terminalError

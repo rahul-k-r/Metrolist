@@ -1,6 +1,8 @@
 package com.metrolist.android.playback
 
+import android.view.KeyEvent
 import androidx.media3.common.C
+import androidx.media3.common.DeviceInfo
 import androidx.media3.common.HeartRating
 import androidx.media3.common.IllegalSeekPositionException
 import androidx.media3.common.MediaItem
@@ -74,6 +76,15 @@ class MediaSessionPlayerTest {
     @After
     fun restoreSettings() {
         Settings.replaceSharedForTest(null)
+    }
+
+    @Test
+    fun onlyABarePauseWhileFollowingIsTreatedAsTheHeadsetsArbitration() {
+        assertTrue(isFollowerHeadsetPause(following = true, keyCode = KeyEvent.KEYCODE_MEDIA_PAUSE))
+        assertFalse(isFollowerHeadsetPause(following = false, keyCode = KeyEvent.KEYCODE_MEDIA_PAUSE))
+        assertFalse(isFollowerHeadsetPause(following = true, keyCode = KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
+        assertFalse(isFollowerHeadsetPause(following = true, keyCode = KeyEvent.KEYCODE_MEDIA_PLAY))
+        assertFalse(isFollowerHeadsetPause(following = true, keyCode = KeyEvent.KEYCODE_MEDIA_NEXT))
     }
 
     @Test
@@ -2092,7 +2103,7 @@ class MediaSessionPlayerTest {
     }
 
     @Test
-    fun followingAnotherDeviceReportsNotPlayingToTheSystemWhileTheAppStateKeepsRunning() {
+    fun followingAnotherDeviceKeepsReportingPlayingButAsARemoteSession() {
         val backend = RecordingPlaybackPlayer(listOf(song("a")))
         val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
         val following = MutableStateFlow(false)
@@ -2111,16 +2122,57 @@ class MediaSessionPlayerTest {
             backend.wantsPlayback = true
             assertTrue(adapter.isPlaying)
             assertTrue(adapter.playWhenReady)
+            assertFalse(adapter.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE)
 
+            // The notification keeps the real state so it can control the device that is playing; the remote type is
+            // what keeps the phone from becoming the Bluetooth source.
             following.value = true
-            assertFalse(adapter.isPlaying)
-            assertFalse(adapter.playWhenReady)
-            // What the app itself shows is read from the music player and stays "playing".
-            assertTrue(backend.isPlaying.value)
-
-            following.value = false
             assertTrue(adapter.isPlaying)
             assertTrue(adapter.playWhenReady)
+            assertEquals(DeviceInfo.PLAYBACK_TYPE_REMOTE, adapter.deviceInfo.playbackType)
+            assertTrue(adapter.isCommandAvailable(Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS))
+
+            following.value = false
+            assertFalse(adapter.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun followingAnotherDeviceSendsVolumeToItAndOnlyKeepsWhatItAccepted() {
+        val backend = RecordingPlaybackPlayer(listOf(song("a")))
+        val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
+        val following = MutableStateFlow(true)
+        val sent = mutableListOf<DcPlaybackCommand>()
+        var accepted = true
+        try {
+            val adapter =
+                MediaSessionPlayer(
+                    backend.player,
+                    MutableStateFlow(Player.REPEAT_MODE_OFF),
+                    isPlaybackLockedProvider = { false },
+                    isPlaybackLockedFlow = MutableStateFlow(false),
+                    isDeviceConnectFollowing = { following.value },
+                    deviceConnectFollowingChanges = following,
+                    deviceConnectInterceptor = { command, _ ->
+                        sent += command
+                        accepted
+                    },
+                    scope = scope,
+                )
+            adapter.setDeviceVolume(40, 0)
+            assertEquals(DcPlaybackAction.VOLUME, sent.single().action)
+            assertEquals(0.4f, sent.single().volume)
+            assertEquals(40, adapter.deviceVolume)
+            assertFalse(adapter.isDeviceMuted)
+
+            adapter.setDeviceVolume(0, 0)
+            assertTrue(adapter.isDeviceMuted)
+
+            accepted = false
+            adapter.setDeviceVolume(70, 0)
+            assertEquals("a rejected command must not change what is shown", 0, adapter.deviceVolume)
         } finally {
             scope.cancel()
         }

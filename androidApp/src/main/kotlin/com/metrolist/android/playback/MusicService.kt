@@ -17,11 +17,13 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
+import android.view.KeyEvent
 import android.widget.Toast
 import androidx.compose.runtime.snapshotFlow
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
+import androidx.core.content.IntentCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.media3.common.C
@@ -286,6 +288,7 @@ class MusicService :
     var media3Player: Player? = null
         private set
     private var mediaSession: MediaLibrarySession? = null
+    private val followerButtonGate by lazy { FollowerMediaButtonGate(this, Looper.getMainLooper()) }
     internal var playbackCommandGeneration = 0L
         private set
     private lateinit var playbackRestoreJob: Job
@@ -914,6 +917,12 @@ class MusicService :
                 ).build()
                 .also(::addSession)
 
+        serviceScope.launch {
+            AndroidDeviceConnect.manager.remote.state
+                .map { AndroidDeviceConnect.manager.remote.isFollowing }
+                .distinctUntilChanged()
+                .collect { followerButtonGate.setHeld(it) }
+        }
         serviceScope.launch {
             (application as App).startup.await()
             automotiveLibrary.observeLikedSongs { count ->
@@ -2985,6 +2994,7 @@ class MusicService :
         try {
             releasePlaybackState()
         } finally {
+            followerButtonGate.release()
             mediaSession?.release()
             MediaArtworkProvider.currentArtwork = null
             player.release()
@@ -3043,6 +3053,17 @@ class MusicService :
     }
 
     private inner class AutomotiveSessionCallback : MediaLibrarySession.Callback {
+        override fun onMediaButtonEvent(
+            session: MediaSession,
+            controllerInfo: MediaSession.ControllerInfo,
+            intent: Intent,
+        ): Boolean {
+            val key = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_KEY_EVENT, KeyEvent::class.java)
+            val drop = key != null && isFollowerHeadsetPause(AndroidDeviceConnect.manager.remote.isFollowing, key.keyCode)
+            if (drop) Timber.tag(TAG).d("Dropped a headset Pause while following another device")
+            return drop
+        }
+
         override fun onConnectAsync(
             session: MediaSession,
             controller: MediaSession.ControllerInfo,

@@ -301,8 +301,9 @@ fun ActiveLyricsLineContent(
     useFixedTone: Boolean = true,
 ) {
     val currentPositionProvider by rememberUpdatedState(positionProvider)
-    val romanizationEnabled = Settings.shared.lyricsRomanizationEnabled
+    val romanizationEnabled = Settings.shared.isLyricsRomanizationActive
     val romanizeAsMainSetting = Settings.shared.lyricsRomanizeAsMain
+    val showOriginalLyrics = Settings.shared.lyricsShowOriginalLyrics
     val animationStyleSetting = Settings.shared.lyricsAnimationStyle
     val showTranslations = Settings.shared.lyricsShowTranslations
     val syllableRomanizationSetting = Settings.shared.lyricsSyllableRomanizationEnabled
@@ -317,6 +318,7 @@ fun ActiveLyricsLineContent(
             lyricStyle,
             romanizationEnabled,
             romanizeAsMainSetting,
+            showOriginalLyrics,
             animationStyleSetting,
             showTranslations,
             syllableRomanizationSetting,
@@ -326,6 +328,7 @@ fun ActiveLyricsLineContent(
                 lyricStyle = lyricStyle,
                 romanizationEnabled = romanizationEnabled,
                 romanizeAsMainSetting = romanizeAsMainSetting,
+                showOriginalLyrics = showOriginalLyrics,
                 animationStyleSetting = animationStyleSetting,
                 showTranslations = showTranslations,
                 syllableRomanizationSetting = syllableRomanizationSetting,
@@ -611,6 +614,7 @@ private class ActiveLinePrep(
             lyricStyle: TextStyle,
             romanizationEnabled: Boolean,
             romanizeAsMainSetting: Boolean,
+            showOriginalLyrics: Boolean = true,
             animationStyleSetting: String?,
             showTranslations: Boolean,
             syllableRomanizationSetting: Boolean,
@@ -642,12 +646,12 @@ private class ActiveLinePrep(
             val romanizeAsMain = romanizeAsMainSetting && romanized != null
             val mainText = if (romanizeAsMain) romanized else entry.text
             val mainWords = if (romanizeAsMain) timedRomanizedWords else originalWords
-            val secondaryWords = if (romanizeAsMain) originalWords else timedRomanizedWords
+            val secondaryWords = if (romanizeAsMain) originalWords.takeIf { showOriginalLyrics } else timedRomanizedWords
             val animationStyle = LyricsAnimationStyle.fromString(animationStyleSetting)
             val isWordAnimationEnabled =
                 animationStyle != LyricsAnimationStyle.NONE &&
                     mainWords?.any { !it.isLineTimed && it.endTime > it.startTime } == true
-            val secondaryText = if (romanizeAsMain) entry.text else romanized
+            val secondaryText = if (romanizeAsMain) entry.text.takeIf { showOriginalLyrics } else romanized
             val translation =
                 entry.translatedText?.replace('\u00A0', ' ')?.trim()?.takeIf {
                     showTranslations &&
@@ -663,7 +667,8 @@ private class ActiveLinePrep(
                 isWordAnimationEnabled &&
                     romanized != null &&
                     entry.hasTimedRomanization() &&
-                    syllableRomanizationSetting
+                    syllableRomanizationSetting &&
+                    (!romanizeAsMain || showOriginalLyrics)
             val displayedSecondary = secondaryText?.takeUnless { showSyllableRomanization }
             return ActiveLinePrep(
                 mainWords = mainWords,
@@ -786,7 +791,8 @@ internal fun InlineLyricsLine(
         remember(Settings.shared.lyricsAnimationStyle) {
             LyricsAnimationStyle.fromString(Settings.shared.lyricsAnimationStyle)
         }
-    val isRomanizationEnabled = Settings.shared.lyricsRomanizationEnabled
+    val isRomanizationEnabled = Settings.shared.isLyricsRomanizationActive
+    val showOriginalLyrics = Settings.shared.lyricsShowOriginalLyrics
     val hasTimedRoman = remember(entry) { entry.hasTimedRomanization() }
     val origWords =
         remember(entry.words) {
@@ -1131,7 +1137,8 @@ internal fun InlineLyricsLine(
                     !mainWords.isNullOrEmpty() &&
                     roman != null &&
                     hasTimedRoman &&
-                    Settings.shared.lyricsSyllableRomanizationEnabled
+                    Settings.shared.lyricsSyllableRomanizationEnabled &&
+                    (!romanizeAsMain || showOriginalLyrics)
 
             val showRomanBg = !romanizeAsMainSetting && roman != null && romanBgText.isNotBlank()
 
@@ -1153,8 +1160,8 @@ internal fun InlineLyricsLine(
                             textMeasurer = textMeasurer,
                             isPlaying = isPlaying,
                             animationStyle = animStyle,
-                            romanizedWords = if (romanizeAsMain) origWords else romanMainWords,
-                            romanizedText = if (romanizeAsMain) entry.text else roman,
+                            romanizedWords = if (romanizeAsMain) origWords.takeIf { showOriginalLyrics } else romanMainWords,
+                            romanizedText = if (romanizeAsMain) entry.text.takeIf { showOriginalLyrics } else roman,
                             showSyllableRomanization = isSyllableRomanizationActive,
                             prewarmMasks = isActive || signedDistance in -1..1,
                         )
@@ -1288,7 +1295,7 @@ internal fun InlineLyricsLine(
             }
             val romanMainContent: @Composable () -> Unit = {
                 if (!isSyllableRomanizationActive) {
-                    if (romanizeAsMainSetting && roman != null) {
+                    if (romanizeAsMainSetting && roman != null && showOriginalLyrics) {
                         Box(
                             modifier =
                                 Modifier
@@ -1330,7 +1337,7 @@ internal fun InlineLyricsLine(
                                 )
                             }
                         }
-                    } else if (roman != null && romanMainText.isNotBlank()) {
+                    } else if (!romanizeAsMainSetting && roman != null && romanMainText.isNotBlank()) {
                         Box(
                             modifier =
                                 Modifier

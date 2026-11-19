@@ -43,6 +43,7 @@ import com.metrolist.shared.model.YTItem
 import com.metrolist.shared.model.isLive
 import com.metrolist.shared.settings.SongMarkBadges
 import com.metrolist.shared.state.SongLikeState
+import com.metrolist.shared.state.SongMetadataState
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.icons.SongStatusIcons
 import org.jetbrains.compose.resources.stringResource
@@ -168,9 +169,10 @@ fun SongStatusBadges(
     showExplicit: Boolean = true,
 ) {
     val isLiked = SongLikeState.isLiked(song.id)
+    val isInLibrary = SongMetadataState.isInLibrary(song)
     val isIncognito = SongMarkBadges.incognito(song)
     val isSkipped = SongMarkBadges.skipped(song)
-    if (!isLiked && song.libraryRemoveToken == null && !isDownloaded && !(showExplicit && song.isExplicit) && !song.isNew &&
+    if (!isLiked && !isInLibrary && !isDownloaded && !(showExplicit && song.isExplicit) && !song.isNew &&
         !song.isLive && !isIncognito && !isSkipped
     ) {
         return
@@ -193,7 +195,7 @@ fun SongStatusBadges(
         }
         if (isIncognito) IncognitoMarkIcon()
         if (isSkipped) SkipMarkIcon()
-        if (song.libraryRemoveToken != null) {
+        if (isInLibrary) {
             Icon(
                 imageVector = SongStatusIcons.Saved,
                 contentDescription = stringResource(Res.string.saved_to_library),

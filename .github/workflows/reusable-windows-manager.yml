@@ -20,7 +20,7 @@ jobs:
   build:
     name: Windows manager
     runs-on: windows-2025 # fork: GitHub-hosted runner instead of Blacksmith
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:

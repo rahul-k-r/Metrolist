@@ -35,6 +35,7 @@ import com.metrolist.android.playback.SongDownloadManager
 import com.metrolist.android.playlistimport.AndroidPlaylistImportNotifier
 import com.metrolist.android.quicksettings.MusicRecognizerTileService
 import com.metrolist.android.recognition.MusicRecognitionService
+import com.metrolist.android.scrobble.LastFmSessionNotification
 import com.metrolist.android.ui.GlobalPlaybackNetworkMonitor
 import com.metrolist.android.update.AppUpdateManager
 import com.metrolist.android.utils.CrashHandler
@@ -65,6 +66,7 @@ import com.metrolist.shared.state.GlobalYouTube
 import com.metrolist.shared.state.SongLikeState
 import com.metrolist.shared.state.SongMetadataState
 import com.metrolist.shared.state.coreModule
+import com.metrolist.shared.utils.isCrashReportingAvailable
 import com.metrolist.shared.youtube.di.sharedModule
 import com.metrolist.shared.youtube.playback.AndroidContextProvider
 import com.metrolist.shared.youtube.playback.PlaybackNetworkStateStore
@@ -285,6 +287,7 @@ class App :
                 .build(),
         )
         AndroidPlaylistImportNotifier.ensureChannel(this)
+        LastFmSessionNotification.register(this)
 
         Timber.tag(TAG).d("App onCreate complete elapsed=%dms", SystemClock.elapsedRealtime() - appStart)
     }
@@ -307,6 +310,7 @@ class App :
     }
 
     private fun migrateTelemetryConsent() {
+        if (!isCrashReportingAvailable()) return
         val preferences = getSharedPreferences("metrolist_security_migrations", MODE_PRIVATE)
         if (!preferences.getBoolean("telemetry_consent_v1", false)) {
             Settings.shared.sentryEnabled = false
@@ -331,7 +335,7 @@ class App :
     }
 
     fun completeOnboarding(sendCrashReports: Boolean) {
-        Settings.shared.sentryEnabled = sendCrashReports
+        if (isCrashReportingAvailable()) Settings.shared.sentryEnabled = sendCrashReports
         onboardingManager.complete()
         setPlaybackServicesEnabled(true)
         SentryManager.initialize(this)
@@ -363,7 +367,11 @@ class App :
         }
         get<CoroutineScope>().launch {
             MusicRecognitionService.status.collect {
-                TileService.requestListeningState(this@App, ComponentName(this@App, MusicRecognizerTileService::class.java))
+                try {
+                    TileService.requestListeningState(this@App, ComponentName(this@App, MusicRecognizerTileService::class.java))
+                } catch (_: IllegalArgumentException) {
+                    // Secondary profiles such as MIUI's Dual Apps (user 999) cannot host Quick Settings tiles.
+                }
             }
         }
         get<CoroutineScope>().launch {

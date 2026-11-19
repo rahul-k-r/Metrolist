@@ -14,7 +14,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -120,6 +119,7 @@ import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.ui.components.ArtistSubtitle
 import com.metrolist.shared.ui.components.MetadataLink
 import com.metrolist.shared.ui.components.PlayerLikeShareButtons
+import com.metrolist.shared.ui.components.playbackMarquee
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.playback.LocalPlaybackController
 import com.metrolist.shared.ui.utils.ArtworkBlurStyle
@@ -476,7 +476,7 @@ private fun StandardMiniplayer(
                                     modifier =
                                         Modifier
                                             .fillMaxWidth()
-                                            .basicMarquee(
+                                            .playbackMarquee(
                                                 iterations = 1,
                                                 initialDelayMillis = 10000,
                                                 velocity = 30.dp,
@@ -499,7 +499,7 @@ private fun StandardMiniplayer(
                                         modifier =
                                             Modifier
                                                 .weight(1f, fill = false)
-                                                .basicMarquee(
+                                                .playbackMarquee(
                                                     iterations = 1,
                                                     initialDelayMillis = 10000,
                                                     velocity = 30.dp,
@@ -524,7 +524,7 @@ private fun StandardMiniplayer(
                                             modifier =
                                                 Modifier
                                                     .weight(1f, fill = false)
-                                                    .basicMarquee(
+                                                    .playbackMarquee(
                                                         iterations = 1,
                                                         initialDelayMillis = 10000,
                                                         velocity = 30.dp,
@@ -672,7 +672,7 @@ private fun FocusModeMiniplayer(
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
-                                    .basicMarquee(
+                                    .playbackMarquee(
                                         iterations = 1,
                                         initialDelayMillis = 10000,
                                         velocity = 30.dp,
@@ -689,7 +689,7 @@ private fun FocusModeMiniplayer(
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
-                                    .basicMarquee(
+                                    .playbackMarquee(
                                         iterations = 1,
                                         initialDelayMillis = 10000,
                                         velocity = 30.dp,

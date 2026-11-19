@@ -322,6 +322,7 @@ kotlin {
                 implementation(libs.kotlinx.datetime)
                 implementation(libs.kotlinx.coroutines.swing)
                 implementation(libs.filekit.dialogs)
+                implementation(libs.dbus.java.core)
                 implementation(libs.koin.core)
                 implementation(libs.koin.compose)
 
@@ -780,7 +781,7 @@ compose.desktop {
                 } else {
                     versionComponents.joinToString(".")
                 }
-            description = "Metrolist music player"
+            description = "Metrolist"
             copyright = "© 2026 Metrolist"
             vendor = "MetrolistGroup"
 
@@ -830,6 +831,8 @@ compose.desktop {
             }
             macOS {
                 bundleID = "com.metrolist.desktop"
+                // Bytedeco's FFmpeg dylibs are built for macOS 15; older systems fail to load them at playback.
+                minimumSystemVersion = "15.0"
                 infoPlist {
                     extraKeysRawXml =
                         """

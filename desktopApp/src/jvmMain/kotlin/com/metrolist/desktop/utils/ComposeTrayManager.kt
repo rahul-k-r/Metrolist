@@ -10,6 +10,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.window.ApplicationScope
 import androidx.compose.ui.window.WindowState
 import com.metrolist.desktop.deviceconnect.DesktopDeviceConnect
 import com.metrolist.desktop.state.app.DesktopNavigation
@@ -54,8 +55,6 @@ import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.settings.displayName
 import com.metrolist.shared.ui.navigation.Screen
 import com.metrolist.shared.utils.OsUtil
-import dev.nucleusframework.composenativetray.lib.mac.MacOSMenuBarThemeDetector
-import dev.nucleusframework.composenativetray.tray.api.Tray
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -71,12 +70,21 @@ import java.awt.Window
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.milliseconds
+import androidx.compose.ui.window.Tray as StockTray
+import dev.nucleusframework.composenativetray.tray.api.Tray as NativeTray
 
 private const val TRAY_RECENT_LIMIT = 8
 private const val TRAY_PLAYLIST_LIMIT = 15
 
 object ComposeTrayManager {
     private val clickScheduler = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "tray-click").apply { isDaemon = true } }
+
+    init {
+        if (OsUtil.isMac) {
+            System.setProperty("apple.awt.enableTemplateImages", "true")
+        }
+    }
+
     private var windowState: WindowState? = null
     private var mainWindow: Window? = null
     private var neverShown = false
@@ -169,35 +177,15 @@ object ComposeTrayManager {
     }
 
     @Composable
-    private fun rememberMacOsMenuBarIsDark(): Boolean {
-        var isDark by remember {
-            mutableStateOf(runCatching { MacOSMenuBarThemeDetector.isDark() }.getOrDefault(true))
-        }
-        DisposableEffect(Unit) {
-            val listener =
-                java.util.function.Consumer<Boolean> { dark ->
-                    isDark = dark
-                }
-            runCatching { MacOSMenuBarThemeDetector.registerListener(listener) }
-            onDispose {
-                runCatching { MacOSMenuBarThemeDetector.removeListener(listener) }
-            }
-        }
-        return isDark
-    }
-
-    @Composable
-    fun TrayIcon() {
+    fun ApplicationScope.TrayIcon() {
         if (!trayEnabled.value) return
         val mediaControls by PlayerState.mediaControls.collectAsState()
         val isPlaying = PlayerState.isPlaying
         val currentTrack = PlayerState.currentTrack
         val isListenTogetherGuest = ListenTogetherState.isListenTogetherGuest()
 
-        val isMacDarkMenu = if (OsUtil.isMac) rememberMacOsMenuBarIsDark() else true
-
         @Suppress("DEPRECATION")
-        val icon = painterResource(if (isMacDarkMenu) "logo.png" else "logo_dark.png")
+        val icon = painterResource("logo.png")
 
         val strUnknownTitle = stringResource(Res.string.tray_unknown_title)
         val strUnknown = stringResource(Res.string.tray_unknown)
@@ -289,146 +277,212 @@ object ComposeTrayManager {
                 )
             }
 
-        Tray(
-            icon = icon,
-            tooltip = tooltip,
-            primaryAction = {
-                if (Settings.shared.desktopTrayClickPlayPause) {
-                    clickGate.click()
-                } else if (Settings.shared.desktopTrayToggleOnClick) {
-                    if (isWindowVisible.value) {
-                        hideWindow()
-                    } else {
-                        showWindow()
-                    }
+        val currentArtistLabel =
+            currentTrack?.let { track ->
+                val artistStr = track.artists.joinToString { it.displayName }.takeIf { it.isNotBlank() } ?: strUnknown
+                String.format(strTrayByTemplate, artistStr)
+            }
+        val currentArtistId = currentTrack?.artists?.firstOrNull { !it.id.isNullOrBlank() }?.id
+        val currentTitleLabel = currentTrack?.title?.takeIf { it.isNotBlank() } ?: strUnknownTitle
+        val playPauseLabel = if (isPlaying) strPause else strPlay
+        val windowToggleLabel = if (mainWindowShown) strHideWindow else strShowWindow
+        val miniplayerToggleLabel = if (miniplayerOpen) strHideMiniplayer else strShowMiniplayer
+        val floatingLyricsToggleLabel = if (floatingLyricsOpen) strHideFloatingLyrics else strShowFloatingLyrics
+        val onTrayAction: () -> Unit = {
+            if (Settings.shared.desktopTrayClickPlayPause) {
+                clickGate.click()
+            } else if (Settings.shared.desktopTrayToggleOnClick) {
+                if (isWindowVisible.value) {
+                    hideWindow()
+                } else {
+                    showWindow()
                 }
-            },
-            menuContent = {
-                currentTrack?.let { track ->
-                    val titleLabel = track.title.takeIf { it.isNotBlank() } ?: strUnknownTitle
-                    val artistStr = track.artists.joinToString { it.displayName }.takeIf { it.isNotBlank() } ?: strUnknown
-                    val artistLabel = String.format(strTrayByTemplate, artistStr)
-                    Item(label = titleLabel) { showWindow() }
-                    val artistId = track.artists.firstOrNull { !it.id.isNullOrBlank() }?.id
-                    Item(label = artistLabel, isEnabled = artistId != null) {
-                        artistId?.let {
-                            showWindow()
-                            EventQueue.invokeLater { DesktopNavigation.navigate(Screen.Artist(it)) }
-                        }
-                    }
-                    Divider()
-                }
+            }
+        }
 
-                if (!isListenTogetherGuest) {
-                    Item(
-                        label = if (isPlaying) strPause else strPlay,
-                        isEnabled = mediaControls.playPause,
-                    ) {
-                        PlayerState.togglePlay()
-                    }
-
-                    if (currentTrack != null) {
-                        Item(label = strNextTrack, isEnabled = mediaControls.next) {
-                            PlayerState.skipNext()
-                        }
-
-                        Item(label = strPreviousTrack, isEnabled = mediaControls.previous) {
-                            PlayerState.skipPrevious()
-                        }
-                    }
-
-                    Divider()
-
-                    Item(label = if (shuffleEnabled) "✓ $strShuffle" else strShuffle) { PlayerState.toggleShuffle() }
-                    Item(
-                        label =
-                            when (repeatMode) {
-                                RepeatMode.OFF -> strRepeatOff
-                                RepeatMode.ALL -> "✓ $strRepeatAll"
-                                RepeatMode.ONE -> "✓ $strRepeatOne"
+        if (OsUtil.isMac) {
+            StockTray(
+                icon = icon,
+                tooltip = tooltip,
+                onAction = onTrayAction,
+                menu = {
+                    currentTrack?.let {
+                        Item(
+                            text = currentTitleLabel,
+                            onClick = { showWindow() },
+                        )
+                        Item(
+                            text = currentArtistLabel ?: "",
+                            enabled = currentArtistId != null,
+                            onClick = {
+                                currentArtistId?.let {
+                                    showWindow()
+                                    EventQueue.invokeLater { DesktopNavigation.navigate(Screen.Artist(it)) }
+                                }
                             },
-                    ) { PlayerState.cycleRepeatMode() }
-                    Item(label = strRestartQueue, isEnabled = hasQueue) { PlayerState.restartQueue() }
-                    Item(label = strClearQueue, isEnabled = hasQueue) { PlayerState.clearQueue() }
+                        )
+                        Separator()
+                    }
 
-                    if (deviceTargets.isNotEmpty()) {
-                        SubMenu(label = strDevices) {
-                            deviceTargets.forEach { target ->
-                                val name = if (target.isLocal) strThisDevice else target.name.ifBlank { strUnknown }
-                                Item(label = if (target.isCurrent) "✓ $name" else name, isEnabled = !target.isCurrent) {
-                                    DesktopDeviceConnect.manager.remote.transferTo(target.id)
+                    if (!isListenTogetherGuest) {
+                        Item(
+                            text = playPauseLabel,
+                            enabled = mediaControls.playPause,
+                            onClick = { PlayerState.togglePlay() },
+                        )
+
+                        if (currentTrack != null) {
+                            Item(
+                                text = strNextTrack,
+                                enabled = mediaControls.next,
+                                onClick = { PlayerState.skipNext() },
+                            )
+
+                            Item(
+                                text = strPreviousTrack,
+                                enabled = mediaControls.previous,
+                                onClick = { PlayerState.skipPrevious() },
+                            )
+                        }
+
+                        Separator()
+                    }
+
+                    Item(text = windowToggleLabel, onClick = { toggleWindow() })
+                    Item(text = miniplayerToggleLabel, onClick = { PlayerState.showMiniplayer = !PlayerState.showMiniplayer })
+                    Item(
+                        text = floatingLyricsToggleLabel,
+                        onClick = { PlayerState.showFloatingLyrics = !PlayerState.showFloatingLyrics },
+                    )
+                    Separator()
+                    Item(
+                        text = strSettings,
+                        onClick = {
+                            UiState.showSettings = true
+                            if (!isWindowVisible.value) {
+                                showWindow()
+                            }
+                        },
+                    )
+                    Separator()
+                    Item(text = strQuitMetrolist, onClick = { onQuit?.invoke() })
+                },
+            )
+        } else {
+            NativeTray(
+                icon = icon,
+                tooltip = tooltip,
+                primaryAction = onTrayAction,
+                menuContent = {
+                    currentTrack?.let {
+                        Item(label = currentTitleLabel) { showWindow() }
+                        Item(label = currentArtistLabel ?: "", isEnabled = currentArtistId != null) {
+                            currentArtistId?.let {
+                                showWindow()
+                                EventQueue.invokeLater { DesktopNavigation.navigate(Screen.Artist(it)) }
+                            }
+                        }
+                        Divider()
+                    }
+
+                    if (!isListenTogetherGuest) {
+                        Item(
+                            label = playPauseLabel,
+                            isEnabled = mediaControls.playPause,
+                        ) {
+                            PlayerState.togglePlay()
+                        }
+
+                        if (currentTrack != null) {
+                            Item(label = strNextTrack, isEnabled = mediaControls.next) {
+                                PlayerState.skipNext()
+                            }
+
+                            Item(label = strPreviousTrack, isEnabled = mediaControls.previous) {
+                                PlayerState.skipPrevious()
+                            }
+                        }
+
+                        Divider()
+
+                        Item(label = if (shuffleEnabled) "✓ $strShuffle" else strShuffle) { PlayerState.toggleShuffle() }
+                        Item(
+                            label =
+                                when (repeatMode) {
+                                    RepeatMode.OFF -> strRepeatOff
+                                    RepeatMode.ALL -> "✓ $strRepeatAll"
+                                    RepeatMode.ONE -> "✓ $strRepeatOne"
+                                },
+                        ) { PlayerState.cycleRepeatMode() }
+                        Item(label = strRestartQueue, isEnabled = hasQueue) { PlayerState.restartQueue() }
+                        Item(label = strClearQueue, isEnabled = hasQueue) { PlayerState.clearQueue() }
+
+                        if (deviceTargets.isNotEmpty()) {
+                            SubMenu(label = strDevices) {
+                                deviceTargets.forEach { target ->
+                                    val name = if (target.isLocal) strThisDevice else target.name.ifBlank { strUnknown }
+                                    Item(label = if (target.isCurrent) "✓ $name" else name, isEnabled = !target.isCurrent) {
+                                        DesktopDeviceConnect.manager.remote.transferTo(target.id)
+                                    }
+                                }
+                            }
+                        }
+
+                        Divider()
+                    }
+
+                    if (!isListenTogetherGuest && (recentSongs.isNotEmpty() || libraryPlaylists.isNotEmpty())) {
+                        // The ticked mode decides what choosing a song or playlist below does.
+                        SubMenu(label = strTrayPlayMode) {
+                            listOf(
+                                TrayPlaylistPlayer.MODE_PLAY to strPlay,
+                                TrayPlaylistPlayer.MODE_PLAY_NEXT to strPlayNext,
+                                TrayPlaylistPlayer.MODE_ADD_TO_QUEUE to strAddToQueue,
+                            ).forEach { (mode, label) ->
+                                Item(label = if (playlistMode == mode) "✓ $label" else label) {
+                                    Settings.shared.desktopTrayPlaylistMode = mode
+                                    playlistMode = mode
                                 }
                             }
                         }
                     }
+                    if (!isListenTogetherGuest && recentSongs.isNotEmpty()) {
+                        SubMenu(label = strRecentlyPlayed) {
+                            recentSongs.forEach { song ->
+                                Item(label = song.title.takeIf { it.isNotBlank() } ?: strUnknownTitle) {
+                                    TrayPlaylistPlayer.applySong(song, recentSongs, playlistMode)
+                                }
+                            }
+                        }
+                    }
+                    if (libraryPlaylists.isNotEmpty()) {
+                        SubMenu(label = strPlaylists) {
+                            libraryPlaylists.take(TRAY_PLAYLIST_LIMIT).forEach { playlist ->
+                                Item(
+                                    label = playlist.name.takeIf { it.isNotBlank() } ?: strUnknownTitle,
+                                    isEnabled = !isListenTogetherGuest,
+                                ) { TrayPlaylistPlayer.run(playlist, playlistMode) }
+                            }
+                        }
+                    }
+                    if (recentSongs.isNotEmpty() || libraryPlaylists.isNotEmpty()) Divider()
 
+                    Item(label = windowToggleLabel) { toggleWindow() }
+                    Item(label = miniplayerToggleLabel) { PlayerState.showMiniplayer = !PlayerState.showMiniplayer }
+                    Item(label = floatingLyricsToggleLabel) { PlayerState.showFloatingLyrics = !PlayerState.showFloatingLyrics }
                     Divider()
-                }
 
-                if (!isListenTogetherGuest && (recentSongs.isNotEmpty() || libraryPlaylists.isNotEmpty())) {
-                    // The ticked mode decides what choosing a song or playlist below does.
-                    SubMenu(label = strTrayPlayMode) {
-                        listOf(
-                            TrayPlaylistPlayer.MODE_PLAY to strPlay,
-                            TrayPlaylistPlayer.MODE_PLAY_NEXT to strPlayNext,
-                            TrayPlaylistPlayer.MODE_ADD_TO_QUEUE to strAddToQueue,
-                        ).forEach { (mode, label) ->
-                            Item(label = if (playlistMode == mode) "✓ $label" else label) {
-                                Settings.shared.desktopTrayPlaylistMode = mode
-                                playlistMode = mode
-                            }
+                    Item(label = strSettings) {
+                        UiState.showSettings = true
+                        if (!isWindowVisible.value) {
+                            showWindow()
                         }
                     }
-                }
-                if (!isListenTogetherGuest && recentSongs.isNotEmpty()) {
-                    SubMenu(label = strRecentlyPlayed) {
-                        recentSongs.forEach { song ->
-                            Item(label = song.title.takeIf { it.isNotBlank() } ?: strUnknownTitle) {
-                                TrayPlaylistPlayer.applySong(song, recentSongs, playlistMode)
-                            }
-                        }
-                    }
-                }
-                if (libraryPlaylists.isNotEmpty()) {
-                    SubMenu(label = strPlaylists) {
-                        libraryPlaylists.take(TRAY_PLAYLIST_LIMIT).forEach { playlist ->
-                            Item(
-                                label = playlist.name.takeIf { it.isNotBlank() } ?: strUnknownTitle,
-                                isEnabled = !isListenTogetherGuest,
-                            ) { TrayPlaylistPlayer.run(playlist, playlistMode) }
-                        }
-                    }
-                }
-                if (recentSongs.isNotEmpty() || libraryPlaylists.isNotEmpty()) Divider()
-
-                Item(label = if (mainWindowShown) strHideWindow else strShowWindow) {
-                    toggleWindow()
-                }
-
-                Item(label = if (miniplayerOpen) strHideMiniplayer else strShowMiniplayer) {
-                    PlayerState.showMiniplayer = !PlayerState.showMiniplayer
-                }
-
-                Item(label = if (floatingLyricsOpen) strHideFloatingLyrics else strShowFloatingLyrics) {
-                    PlayerState.showFloatingLyrics = !PlayerState.showFloatingLyrics
-                }
-
-                Divider()
-
-                Item(label = strSettings) {
-                    UiState.showSettings = true
-                    if (!isWindowVisible.value) {
-                        showWindow()
-                    }
-                }
-
-                Divider()
-
-                Item(label = strQuitMetrolist) {
-                    onQuit?.invoke()
-                }
-            },
-        )
+                    Divider()
+                    Item(label = strQuitMetrolist) { onQuit?.invoke() }
+                },
+            )
+        }
         DisposableEffect(Unit) {
             onDispose { trayDisposed.complete(Unit) }
         }

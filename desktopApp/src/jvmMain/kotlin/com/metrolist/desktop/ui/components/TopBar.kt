@@ -22,7 +22,6 @@ import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -189,6 +188,7 @@ import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.settings.displayName
 import com.metrolist.shared.state.GlobalYouTubeRepository
 import com.metrolist.shared.ui.components.IncognitoBadge
+import com.metrolist.shared.ui.components.playbackMarquee
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.navigation.navigationPopupSource
 import com.metrolist.shared.ui.theme.uiEnhanced
@@ -581,7 +581,7 @@ fun WindowScope.TopBarWithPlayer(
                                             overflow = TextOverflow.Ellipsis,
                                             color = colorScheme.onPrimaryContainer,
                                             modifier =
-                                                Modifier.basicMarquee(
+                                                Modifier.playbackMarquee(
                                                     iterations = if (UiState.videoFullscreenObscuresPlayer) 0 else 1,
                                                 ),
                                         )
@@ -592,7 +592,7 @@ fun WindowScope.TopBarWithPlayer(
                                             overflow = TextOverflow.Ellipsis,
                                             color = colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
                                             modifier =
-                                                Modifier.basicMarquee(
+                                                Modifier.playbackMarquee(
                                                     iterations = if (UiState.videoFullscreenObscuresPlayer) 0 else 1,
                                                 ),
                                         )

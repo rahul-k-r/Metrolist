@@ -794,10 +794,13 @@ class MediaSessionPlayer(
             ?: MediaItem.EMPTY
 
     override fun getCurrentMediaItem(): MediaItem? {
+        val currentSong = musicPlayer.currentSong.value
+        // currentSong and queueState update separately, so the entry at the index can belong to a different song.
         val entry =
             musicPlayer.queueState.value.entries
                 .getOrNull(getCurrentMediaItemIndex())
-        return currentItemCache.get(entry?.song ?: musicPlayer.currentSong.value, entry?.key)?.withEmbeddedArtwork()
+                ?.takeIf { currentSong == null || it.song.id == currentSong.id }
+        return currentItemCache.get(entry?.song ?: currentSong, entry?.key)?.withEmbeddedArtwork()
     }
 
     override fun getMediaMetadata(): MediaMetadata =

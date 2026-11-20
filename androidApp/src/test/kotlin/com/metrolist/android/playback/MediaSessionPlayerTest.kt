@@ -760,6 +760,40 @@ class MediaSessionPlayerTest {
     }
 
     @Test
+    fun `current media item follows the current song while the queue index lags behind it`() {
+        val old = song("old")
+        val next = song("next")
+        val backend = RecordingPlaybackPlayer(listOf(old, next))
+        val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
+        val adapter =
+            MediaSessionPlayer(
+                musicPlayer = backend.player,
+                repeatMode = MutableStateFlow(Player.REPEAT_MODE_OFF),
+                isPlaybackLockedProvider = { false },
+                isPlaybackLockedFlow = MutableStateFlow(false),
+                scope = scope,
+            )
+        val transitions = mutableListOf<String?>()
+        adapter.addListener(
+            object : Player.Listener {
+                override fun onMediaItemTransition(
+                    mediaItem: MediaItem?,
+                    reason: Int,
+                ) {
+                    transitions += mediaItem?.mediaMetadata?.title?.toString()
+                }
+            },
+        )
+
+        backend.currentSong.value = next
+
+        assertEquals("next", adapter.mediaMetadata.title)
+        assertEquals("next", adapter.currentMediaItem?.mediaMetadata?.title)
+        assertEquals("next", transitions.last())
+        scope.cancel()
+    }
+
+    @Test
     fun `cast generation refreshes known metadata duration after replacement`() {
         val first = song("first", duration = 10)
         val next = song("next", duration = 30)

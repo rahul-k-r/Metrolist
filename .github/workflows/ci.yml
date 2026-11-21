@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, custom] # fork: custom is the fork's working branch
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -17,7 +17,7 @@ concurrency:
 jobs:
   changes:
     name: Select checks and repository checks
-    runs-on: blacksmith-2vcpu-ubuntu-2604
+    runs-on: ubuntu-24.04 # fork: GitHub-hosted runner instead of Blacksmith
     timeout-minutes: 5
     outputs:
       android: ${{ steps.paths.outputs.android }}

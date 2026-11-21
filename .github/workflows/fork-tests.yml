@@ -1,0 +1,55 @@
+name: Fork tests
+
+# fork: unit tests only, on the fork's working branch. Upstream CI also builds and lints every platform.
+on:
+  push:
+    branches: [custom]
+    paths-ignore: ["**/*.md", "docs/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Android and shared unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Prepare CI Gradle
+        uses: ./.github/actions/prepare-ci-gradle
+        with:
+          cache-scope: fork-tests
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+          persist-configuration-cache: 'false'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
+        with:
+          packages: platform-tools
+
+      - name: Run unit tests
+        run: |
+          ./gradlew :androidApp:testDebugUnitTest :shared:testAndroidHostTest --no-daemon --max-workers="$(nproc)" \
+            "-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g -XX:+UseParallelGC -Dfile.encoding=UTF-8" \
+            -Pmetrolist.sourceRevision=
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: test-reports
+          path: |
+            androidApp/build/reports/tests/
+            shared/build/reports/tests/
+          retention-days: 7

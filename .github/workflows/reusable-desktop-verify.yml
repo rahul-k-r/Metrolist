@@ -41,15 +41,15 @@ permissions:
 jobs:
   build:
     name: Linux ${{ matrix.arch }}
-    runs-on: ${{ matrix.runner }} # fork: matrix uses GitHub-hosted runners instead of Blacksmith
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
         include: >-
           ${{ fromJSON(!inputs.include-arm64
-            && '[{"arch":"x64","runner":"ubuntu-24.04"}]'
-            || '[{"arch":"x64","runner":"ubuntu-24.04"},{"arch":"arm64","runner":"ubuntu-24.04-arm"}]') }}
+            && '[{"arch":"x64","runner":"blacksmith-4vcpu-ubuntu-2604"}]'
+            || '[{"arch":"x64","runner":"blacksmith-4vcpu-ubuntu-2604"},{"arch":"arm64","runner":"blacksmith-4vcpu-ubuntu-2604-arm"}]') }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

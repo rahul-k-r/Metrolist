@@ -40,6 +40,17 @@ class AppUpdateManagerTest {
         assertNull(AppUpdateManager.newestInstallableUpdate(releases, "14.0.0+0.1.7"))
     }
 
+    @Test
+    fun updateSelectionSkipsPrereleasesUnlessRecoveringFromACrash() {
+        val candidate = releaseWithAssets("Metrolist.apk", tag = "v14.0.1-rc.1+0.1.9")
+        val flagged = releaseWithAssets("Metrolist.apk", tag = "v14.0.1+0.1.8").copy(prerelease = true)
+        val stable = releaseWithAssets("Metrolist.apk", tag = "v14.0.0+0.1.7")
+        val releases = listOf(candidate, flagged, stable)
+
+        assertEquals(stable, AppUpdateManager.newestInstallableUpdate(releases, "14.0.0+0.1.6"))
+        assertEquals(candidate, AppUpdateManager.newestInstallableUpdate(releases, "14.0.0+0.1.6", crashRecovery = true))
+    }
+
     private fun releaseWithAssets(
         vararg names: String,
         tag: String = "v14.0.0",

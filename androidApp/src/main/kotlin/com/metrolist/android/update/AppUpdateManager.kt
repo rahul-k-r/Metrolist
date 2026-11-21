@@ -222,7 +222,7 @@ object AppUpdateManager {
                     val now = System.currentTimeMillis()
                     if (!crashRecovery) Settings.shared.lastUpdateCheckTimestamp = now
                     val update =
-                        newestInstallableUpdate(publicReleases, currentVersion)
+                        newestInstallableUpdate(publicReleases, currentVersion, crashRecovery)
                             ?: allReleases.firstOrNull(GitHubRelease::isNightly)?.takeIf { nightly ->
                                 // A crash offers the nightly even on the stable channel, since it may already carry the fix.
                                 (crashRecovery || followsNightlyUpdates(Settings.shared.updateChannel, currentVersion)) &&
@@ -535,11 +535,18 @@ object AppUpdateManager {
 
     private fun sha256(value: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(value).joinToString("") { "%02x".format(it) }
 
-    /** Newest release above [currentVersion] that ships an installable APK; desktop-only releases are skipped. */
+    /**
+     * Newest release above [currentVersion] that ships an installable APK; desktop-only releases are skipped.
+     * Prereleases are offered only during [crashRecovery], since one may already carry the fix.
+     */
     internal fun newestInstallableUpdate(
         releasesNewestFirst: List<GitHubRelease>,
         currentVersion: String,
-    ): GitHubRelease? = releasesNewestFirst.firstOrNull { it.apk != null && compareVersions(it.version, currentVersion) > 0 }
+        crashRecovery: Boolean = false,
+    ): GitHubRelease? =
+        releasesNewestFirst.firstOrNull {
+            (crashRecovery || it.isPublishedStable) && it.apk != null && compareVersions(it.version, currentVersion) > 0
+        }
 
     internal fun compareVersions(
         left: String,
